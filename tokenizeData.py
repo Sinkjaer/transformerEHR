@@ -12,6 +12,8 @@ from torch.utils.data import Dataset, DataLoader
 file_path = "H:/Code/transformerEHR/syntheticData.json"
 SEP_TOKEN = "<SEP>"
 PAD_TOKEN = "<PAD>"
+START_TOKEN = "<CLS>"
+MASK_TOKEN = "<MASK>"
 
 
 # %% Make vocab
@@ -32,7 +34,9 @@ def build_vocab(filename):
     # build vocabulary
     events = unique_strings(events)
     counter = Counter(events)
-    vocab_list = vocab(counter, specials=(SEP_TOKEN, PAD_TOKEN, "<MASK>"))
+    vocab_list = vocab(
+        counter, specials=(START_TOKEN, SEP_TOKEN, PAD_TOKEN, MASK_TOKEN)
+    )
 
     return vocab_list
 
@@ -53,9 +57,6 @@ def process_data(filename):
     max_length = 0
     processed_data = {}
 
-    # Variables for calculating age
-    today = datetime.today()
-
     for patient, patient_data in data.items():
         birth_date = datetime.strptime(patient_data["birthdate"], "%Y-%m-%d")
         events = patient_data["events"]
@@ -71,11 +72,13 @@ def process_data(filename):
                 admid_groups[event["admid"]] = [[event["admdate"]], [event["codes"]]]
 
         # Arrange 'admdate' and 'codes' into sequences with '[SEP]' separating different 'admid' groups
-        date_sequence = []
-        age_sequence = []
-        code_sequence = []
-        position_sqeuence = []
-        segment_sequence = []
+
+        # Initialize sequences and insert start token
+        date_sequence = [date(1900, 1, 1)]
+        age_sequence = [0]
+        code_sequence = [START_TOKEN]
+        position_sqeuence = [-1]
+        segment_sequence = [0]
 
         position = 1
         segment = 1
@@ -94,7 +97,7 @@ def process_data(filename):
             segment *= -1
 
             # Add segment date and age where seprator is added
-            date_sequence += date(1900, 1, 1)
+            date_sequence += date(2000, 1, 1)
             age_sequence += -1
 
         # Remove the last '[SEP]' from the sequences
@@ -154,3 +157,85 @@ class HealthDataset(Dataset):
 
 # # Test data_loader
 # sample = next(iter(data_loader))
+
+
+# %% Tokenize including dates
+def process_data(filename, vocab_list):
+    """
+    Function to process the data from the json file to
+    """
+    with open(filename) as f:
+        data = json.load(f)
+
+    max_length = 0
+    processed_data = {}
+
+    for patient, patient_data in data.items():
+        birth_date = datetime.strptime(patient_data["birthdate"], "%Y-%m-%d")
+        events = patient_data["events"]
+        events.sort(key=lambda x: x["admdate"])  # Sort events by 'admdate'
+
+        # Group 'admdate' and 'codes' with same 'admid' together
+        admid_groups = {}
+        for event in events:
+            if event["admid"] in admid_groups:
+                admid_groups[event["admid"]][0].append(event["admdate"])
+                admid_groups[event["admid"]][1].append(event["codes"])
+            else:
+                admid_groups[event["admid"]] = [[event["admdate"]], [event["codes"]]]
+
+        # Arrange 'admdate' and 'codes' into sequences with '[SEP]' separating different 'admid' groups
+
+        # Initialize sequences and insert start token
+        date_sequence = [date(1900, 1, 1)]
+        age_sequence = [0]
+        code_sequence = [START_TOKEN]
+        position_sqeuence = [-1]
+        segment_sequence = [0]
+
+        position = 1
+        segment = 1
+        for date_list, code_list in admid_groups.values():
+            date_sequence += date_list
+            age_sequence += [
+                str(
+                    relativedelta(datetime.strptime(date, "%Y-%m-%d"), birth_date).years
+                )
+                for date in date_list
+            ]
+            code_sequence += code_list + [SEP_TOKEN]
+            position_sqeuence += [position] * (len(code_list) + 1)
+            segment_sequence += [segment] * (len(code_list) + 1)
+            position += 1
+            segment *= -1
+
+            # Add segment date and age where seprator is added
+            date_sequence += date(2000, 1, 1)
+            age_sequence += -1
+
+        # Remove the last '[SEP]' from the sequences
+        date_sequence = date_sequence[:-1]
+        age_sequence = age_sequence[:-1]
+        code_sequence = code_sequence[:-1]
+
+        if len(date_sequence) > max_length:
+            max_length = len(date_sequence)
+
+        processed_data[patient] = {
+            "dates": date_sequence,
+            "age": age_sequence,
+            "codes": code_sequence,
+            "position": position_sqeuence,
+            "segment": segment_sequence,
+        }
+
+    # Padding all sequences to the max length*
+    for patient, sequences in processed_data.items():
+        for key in sequences:
+            if len(sequences[key]) < max_length:
+                if key == "codes":
+                    sequences[key] += [PAD_TOKEN] * (max_length - len(sequences[key]))
+                else:  # pad with zeros for the other sequences
+                    sequences[key] += [0] * (max_length - len(sequences[key]))
+
+    return processed_data
