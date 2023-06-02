@@ -4,16 +4,17 @@ import random
 def code2index(tokens, token2idx, mask_token=None):
     output_tokens = []
     for i, token in enumerate(tokens):
-        if token==mask_token:
-            output_tokens.append(token2idx['UNK'])
+        if token == mask_token:
+            output_tokens.append(token2idx["UNK"])
         else:
-            output_tokens.append(token2idx.get(token, token2idx['UNK']))
+            output_tokens.append(token2idx.get(token, token2idx["UNK"]))
     return tokens, output_tokens
 
 
-def random_mask(tokens, token2idx):
-    output_label = []
-    output_token = []
+def random_masking(tokens, token2idx):
+    output_label_w2idx = []
+    output_token_w2idx = []
+    masked_index = []
     for i, token in enumerate(tokens):
         prob = random.random()
         # mask token with 15% probability
@@ -22,25 +23,25 @@ def random_mask(tokens, token2idx):
 
             # 80% randomly change token to mask token
             if prob < 0.8:
-                output_token.append(token2idx["MASK"])
+                output_token_w2idx.append(token2idx["MASK"])
 
             # 10% randomly change token to random token
             elif prob < 0.9:
-                output_token.append(random.choice(list(token2idx.values())))
+                output_token_w2idx.append(random.choice(list(token2idx.values())))
 
             # -> rest 10% randomly keep current token
 
             # append current token to output (we will predict these later
-            output_label.append(token2idx.get(token, token2idx['UNK']))
+            output_label_w2idx.append(token2idx.get(token, token2idx["UNK"]))
         else:
             # no masking token (will be ignored by loss function later)
-            output_label.append(-1)
-            output_token.append(token2idx.get(token, token2idx['UNK']))
+            output_label_w2idx.append(-1)
+            output_token_w2idx.append(token2idx.get(token, token2idx["UNK"]))
 
-    return tokens, output_token, output_label
+    return output_token_w2idx, output_label_w2idx, masked_index
 
 
-def index_seg(tokens, symbol='SEP'):
+def index_seg(tokens, symbol="SEP"):
     flag = 0
     seg = []
 
@@ -56,7 +57,7 @@ def index_seg(tokens, symbol='SEP'):
     return seg
 
 
-def position_idx(tokens, symbol='SEP'):
+def position_idx(tokens, symbol="SEP"):
     pos = []
     flag = 0
 
@@ -71,7 +72,7 @@ def position_idx(tokens, symbol='SEP'):
 
 def seq_padding(tokens, max_len, token2idx=None, symbol=None, unkown=True):
     if symbol is None:
-        symbol = 'PAD'
+        symbol = "PAD"
 
     seq = []
     token_len = len(tokens)
@@ -85,7 +86,7 @@ def seq_padding(tokens, max_len, token2idx=None, symbol=None, unkown=True):
             if i < token_len:
                 # 1 indicate UNK
                 if unkown:
-                    seq.append(token2idx.get(tokens[i], token2idx['UNK']))
+                    seq.append(token2idx.get(tokens[i], token2idx["UNK"]))
                 else:
                     seq.append(token2idx.get(tokens[i]))
             else:
