@@ -11,7 +11,9 @@ def code2index(tokens, token2idx, mask_token=None):
     return tokens, output_tokens
 
 
-def random_masking(tokens, token2idx):
+def random_masking(
+    tokens, vocab, token_to_idx, UNKNOWN_TOKEN="<UNK>", MASK_TOKEN="<MASK>"
+):
     output_label_w2idx = []
     output_token_w2idx = []
     masked_index = []
@@ -23,20 +25,21 @@ def random_masking(tokens, token2idx):
 
             # 80% randomly change token to mask token
             if prob < 0.8:
-                output_token_w2idx.append(token2idx["MASK"])
+                output_token_w2idx.append(vocab[MASK_TOKEN])
+                masked_index.append(1)  # 1 indicate masked token
 
-            # 10% randomly change token to random token
-            elif prob < 0.9:
-                output_token_w2idx.append(random.choice(list(token2idx.values())))
-
-            # -> rest 10% randomly keep current token
+            # 20% randomly change token to random token
+            else:
+                output_token_w2idx.append(random.choice(list(token_to_idx.values())))
+                masked_index.append(2)  # 2 indicate random token
 
             # append current token to output (we will predict these later
-            output_label_w2idx.append(token2idx.get(token, token2idx["UNK"]))
+            output_label_w2idx.append(vocab[UNKNOWN_TOKEN])
         else:
             # no masking token (will be ignored by loss function later)
             output_label_w2idx.append(-1)
-            output_token_w2idx.append(token2idx.get(token, token2idx["UNK"]))
+            output_token_w2idx.append(vocab[token])
+            masked_index.append(0)  # 0 indicate no masked token
 
     return output_token_w2idx, output_label_w2idx, masked_index
 
