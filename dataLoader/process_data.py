@@ -12,57 +12,6 @@ from torch.utils.data import Dataset, DataLoader
 
 from utils import random_masking
 
-# global variables
-file_path = "H:/Code/transformerEHR/syntheticData.json"
-ref_date = datetime(1900, 1, 1)
-START_TOKEN_NS = 0  # non-sequence start token
-START_TOKEN = "<CLS>"
-SEP_TOKEN = "<SEP>"
-# SEP_TOKEN_NS = # this is not used
-PAD_TOKEN = "<PAD>"
-PAD_TOKEN_NS = 0
-MASK_TOKEN = "<MASK>"
-MASK_TOKEN_NS = 0
-UNKNOWN_TOKEN = "<UNK>"
-
-
-# %% Make vocab
-
-
-# Functions finds unique strings in a list
-def unique_strings(string_list):
-    unique_list = list(set(string_list))
-    return unique_list
-
-
-# Function should only take data file
-def build_vocab(data):
-    events = []
-    for key, value in data.items():
-        list_of_events = value["events"]
-        for n in range(len(list_of_events)):
-            events.append(list_of_events[n]["codes"])
-
-    # build vocabulary
-    events = unique_strings(events)
-    counter = Counter(events)
-    vocab_list = vocab(
-        counter, specials=(UNKNOWN_TOKEN, START_TOKEN, SEP_TOKEN, PAD_TOKEN, MASK_TOKEN)
-    )
-    vocab_list.set_default_index(vocab_list[UNKNOWN_TOKEN])
-
-    word_to_idx = vocab_list.get_stoi()
-
-    return vocab_list, word_to_idx
-
-
-# %% Test Tokenizer
-# with open(file_path) as f:
-#     data = json.load(f)
-# vocab_list, word_to_idx = build_vocab(data)
-# print("Known token:", vocab_list["Q12"])
-# print("Unknown token:", vocab_list["Q1"])
-
 
 # %% DataLoader
 class MaskedDataset(Dataset):
@@ -78,17 +27,28 @@ class MaskedDataset(Dataset):
         codes = torch.tensor(self.data[idx]["codes_masked"])
         position = torch.tensor(self.data[idx]["position"])
         segment = torch.tensor(self.data[idx]["segment"])
-        return codes, dates, age, position, segment
+        attension_mask = torch.tensor(self.data[idx]["attention_mask"])
+        return codes, dates, age, position, segment, attension_mask
 
 
 # %% Tokenize including dates
-def process_data_MLM(data, vocab_list, word_to_idx):
+def process_data_MLM(
+    data,
+    vocab_list,
+    word_to_idx,
+    START_TOKEN="<CLS>",
+    SEP_TOKEN="<SEP>",
+    PAD_TOKEN="<PAD>",
+    EMPTY_TOKEN_NS=0,
+    ref_date=datetime(1900, 1, 1),
+    max_length=512,
+):
     """
     Function to process the data from the json file to
     Data is processed for MLM (Masked Language Model) task
     """
 
-    max_length = 1000
+    max_length = 512  # maximum length of sequence - currently given by BERT
     processed_data = {}
 
     for patient, patient_data in data.items():
@@ -108,11 +68,11 @@ def process_data_MLM(data, vocab_list, word_to_idx):
         # Arrange 'admdate' and 'codes' into sequences with '[SEP]' separating different 'admid' groups
 
         # Initialize sequences and insert start token
-        date_sequence = [START_TOKEN_NS]
-        age_sequence = [START_TOKEN_NS]
+        date_sequence = [EMPTY_TOKEN_NS]
+        age_sequence = [EMPTY_TOKEN_NS]
         code_sequence = [START_TOKEN]
-        position_sqeuence = [START_TOKEN_NS]
-        segment_sequence = [START_TOKEN_NS]
+        position_sqeuence = [EMPTY_TOKEN_NS]
+        segment_sequence = [EMPTY_TOKEN_NS]
 
         position = 1
         segment = 1
@@ -156,19 +116,25 @@ def process_data_MLM(data, vocab_list, word_to_idx):
             if key == "codes":
                 sequences[key] += [PAD_TOKEN] * (max_length - len(sequences[key]))
             else:
-                sequences[key] += [PAD_TOKEN_NS] * (max_length - len(sequences[key]))
+                sequences[key] += [EMPTY_TOKEN_NS] * (max_length - len(sequences[key]))
+        # Attentions masks
+        sequences["attention_mask"] = [1] * len(sequences["codes"]) + [0] * (
+            max_length - len(sequences["codes"])
+        )
 
         # Mask codes
         codes_masked, label, masked_index = random_masking(
             sequences["codes"], vocab_list, word_to_idx
         )
+
         sequences["codes_masked"] = codes_masked
         sequences["label"] = label
         sequences["masked_index"] = masked_index
     return processed_data
 
 
-# %% Test process_data_MLM
+# # %% Test process_data_MLM
+# file_path = "H:/Code/transformerEHR/syntheticData.json"
 # with open(file_path) as f:
 #     data = json.load(f)
 
@@ -181,4 +147,3 @@ def process_data_MLM(data, vocab_list, word_to_idx):
 
 # # Test data_loader
 # sample = next(iter(data_loader))
-# %%
