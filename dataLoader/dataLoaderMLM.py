@@ -10,7 +10,7 @@ from datetime import datetime, date
 import torch
 from torch.utils.data import Dataset, DataLoader
 
-from utils import random_masking
+from dataLoader.utils import random_masking
 
 
 # %% DataLoader
@@ -24,11 +24,22 @@ class MaskedDataset(Dataset):
     def __getitem__(self, idx):
         dates = torch.tensor(self.data[idx]["dates"])
         age = torch.tensor(self.data[idx]["age"])
-        codes = torch.tensor(self.data[idx]["codes_masked"])
+        codes = torch.tensor(self.data[idx]["masked_codes"])
         position = torch.tensor(self.data[idx]["position"])
         segment = torch.tensor(self.data[idx]["segment"])
         attension_mask = torch.tensor(self.data[idx]["attention_mask"])
-        return codes, dates, age, position, segment, attension_mask
+        masked_labels = torch.tensor(self.data[idx]["masked_label"])
+        patient = torch.tensor(self.data[idx]["patient"])
+        return (
+            dates,
+            age,
+            codes,
+            position,
+            segment,
+            attension_mask,
+            masked_labels,
+            patient,
+        )
 
 
 # %% Tokenize including dates
@@ -83,6 +94,8 @@ def process_data_MLM(
             ]
             age_sequence += [
                 relativedelta(datetime.strptime(date, "%Y-%m-%d"), birth_date).years
+                + relativedelta(datetime.strptime(date, "%Y-%m-%d"), birth_date).months
+                / 12
                 for date in date_list
             ]
             code_sequence += code_list + [SEP_TOKEN]
@@ -111,6 +124,9 @@ def process_data_MLM(
         }
 
     for patient, sequences in processed_data.items():
+        sequences["attention_mask"] = [1] * len(sequences["codes"]) + [0] * (
+            max_length - len(sequences["codes"])
+        )
         # Padding all sequences to the max length*
         for key in sequences:
             if key == "codes":
@@ -118,23 +134,21 @@ def process_data_MLM(
             else:
                 sequences[key] += [EMPTY_TOKEN_NS] * (max_length - len(sequences[key]))
         # Attentions masks
-        sequences["attention_mask"] = [1] * len(sequences["codes"]) + [0] * (
-            max_length - len(sequences["codes"])
-        )
 
         # Mask codes
-        codes_masked, label, masked_index = random_masking(
+        masked_codes, masked_label, masked_index = random_masking(
             sequences["codes"], vocab_list, word_to_idx
         )
 
-        sequences["codes_masked"] = codes_masked
-        sequences["label"] = label
+        sequences["masked_codes"] = masked_codes
+        sequences["masked_label"] = masked_label
         sequences["masked_index"] = masked_index
+        sequences["patient"] = int(patient)
     return processed_data
 
 
 # # %% Test process_data_MLM
-# file_path = "H:/Code/transformerEHR/syntheticData.json"
+# file_path = "H:/Code/transformerEHR/data/syntheticData.json"
 # with open(file_path) as f:
 #     data = json.load(f)
 

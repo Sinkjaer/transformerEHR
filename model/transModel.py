@@ -13,9 +13,8 @@ class BertEmbeddings(nn.Module):
         self.segment_embeddings = nn.Embedding(
             config.seg_vocab_size, config.hidden_size
         )
-        self.age_embeddings = nn.Embedding(config.age_vocab_size, config.hidden_size)
-        self.dates_embeddings = nn.Embedding(
-            config.dates_vocab_size, config.hidden_size
+        self.age_embeddings = nn.Embedding(
+            config.max_position_embeddings, config.hidden_size
         )
         self.posi_embeddings = nn.Embedding(
             config.max_position_embeddings, config.hidden_size
