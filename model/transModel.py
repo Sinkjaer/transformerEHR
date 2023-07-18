@@ -13,9 +13,7 @@ class BertEmbeddings(nn.Module):
         self.segment_embeddings = nn.Embedding(
             config.seg_vocab_size, config.hidden_size
         )
-        self.age_embeddings = nn.Embedding(
-            config.max_position_embeddings, config.hidden_size
-        )
+        self.age_embeddings = nn.Embedding(config.age_vocab_size, config.hidden_size)
         self.posi_embeddings = nn.Embedding(
             config.max_position_embeddings, config.hidden_size
         ).from_pretrained(
@@ -35,8 +33,9 @@ class BertEmbeddings(nn.Module):
         seg_ids=None,
         posi_ids=None,
     ):
-        if dates_ids is None:
-            dates_ids = torch.zeros_like(word_ids)
+        # Only input tokens
+        dates_ids = None  # dates_ids is not used
+
         if seg_ids is None:
             seg_ids = torch.zeros_like(word_ids)
         if age_ids is None:
@@ -45,14 +44,11 @@ class BertEmbeddings(nn.Module):
             posi_ids = torch.zeros_like(word_ids)
 
         word_embed = self.word_embeddings(word_ids)
-        dates_embed = self.word_embeddings(dates_ids)
         segment_embed = self.segment_embeddings(seg_ids)
-        age_embed = self.age_embeddings(age_ids)
+        age_embed = self.age_embeddings(age_ids.long())
         posi_embeddings = self.posi_embeddings(posi_ids)
 
-        embeddings = (
-            word_embed + dates_embed + segment_embed + age_embed + posi_embeddings
-        )
+        embeddings = word_embed + segment_embed + age_embed + posi_embeddings
 
         embeddings = self.LayerNorm(embeddings)
         embeddings = self.dropout(embeddings)
@@ -92,7 +88,7 @@ class BertModel(Bert.modeling.BertPreTrainedModel):
     def forward(
         self,
         input_ids,
-        dates_ids,
+        dates_ids=None,
         age_ids=None,
         seg_ids=None,
         posi_ids=None,
@@ -101,12 +97,13 @@ class BertModel(Bert.modeling.BertPreTrainedModel):
     ):
         if attention_mask is None:
             attention_mask = torch.ones_like(input_ids)
-        if dates_ids is None:
-            dates_ids = torch.zeros_like(input_ids)
+
         if age_ids is None:
             age_ids = torch.zeros_like(input_ids)
+
         if seg_ids is None:
             seg_ids = torch.zeros_like(input_ids)
+
         if posi_ids is None:
             posi_ids = torch.zeros_like(input_ids)
 

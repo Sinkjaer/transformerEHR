@@ -2,33 +2,35 @@ import random
 
 
 def random_masking(
-    tokens, vocab, token_to_idx, UNKNOWN_TOKEN="<UNK>", MASK_TOKEN="<MASK>"
+    tokens,
+    vocab,
+    token_to_idx,
+    UNKNOWN_TOKEN="<UNK>",
+    MASK_TOKEN="<MASK>",
+    probability=0.15,
 ):
-    output_label_w2idx = []
-    output_token_w2idx = []
-    masked_index = []
+    true_tokens = []
+    masked_tokens = []
+    output_label = []
     for i, token in enumerate(tokens):
         prob = random.random()
         # mask token with 15% probability
-        if prob < 0.15:
-            prob /= 0.15
+        if prob < probability:
+            prob /= probability
 
             # 80% randomly change token to mask token
             if prob < 0.8:
-                output_token_w2idx.append(vocab[MASK_TOKEN])
-                masked_index.append(1)  # 1 indicate masked token
+                masked_tokens.append(vocab[MASK_TOKEN])
 
             # 20% randomly change token to random token
             else:
-                output_token_w2idx.append(random.choice(list(token_to_idx.values())))
-                masked_index.append(2)  # 2 indicate random token
+                masked_tokens.append(random.choice(list(token_to_idx.values())))
 
             # append current token to output (we will predict these later
-            output_label_w2idx.append(vocab[UNKNOWN_TOKEN])
+            output_label.append(vocab[token])
         else:
             # no masking token (will be ignored by loss function later)
-            output_label_w2idx.append(-1)
-            output_token_w2idx.append(vocab[token])
-            masked_index.append(0)  # 0 indicate no masked token
+            output_label.append(-1)
+            masked_tokens.append(vocab[token])
 
-    return output_token_w2idx, output_label_w2idx, masked_index
+    return true_tokens, masked_tokens, output_label

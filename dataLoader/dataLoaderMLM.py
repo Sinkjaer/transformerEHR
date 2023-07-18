@@ -24,21 +24,21 @@ class MaskedDataset(Dataset):
     def __getitem__(self, idx):
         dates = torch.tensor(self.data[idx]["dates"])
         age = torch.tensor(self.data[idx]["age"])
-        codes = torch.tensor(self.data[idx]["masked_codes"])
+        masked_codes = torch.tensor(self.data[idx]["masked_codes"])
         position = torch.tensor(self.data[idx]["position"])
         segment = torch.tensor(self.data[idx]["segment"])
         attension_mask = torch.tensor(self.data[idx]["attention_mask"])
-        masked_labels = torch.tensor(self.data[idx]["masked_label"])
-        patient = torch.tensor(self.data[idx]["patient"])
+        output_labels = torch.tensor(self.data[idx]["output_labels"])
+        # patient = torch.tensor(self.data[idx]["patient"])
         return (
             dates,
             age,
-            codes,
+            masked_codes,
             position,
             segment,
             attension_mask,
-            masked_labels,
-            patient,
+            output_labels,
+            # patient,
         )
 
 
@@ -53,30 +53,50 @@ def process_data_MLM(
     EMPTY_TOKEN_NS=0,
     ref_date=datetime(1900, 1, 1),
     max_length=512,
+    mask_prob=0.15,
+    Azure=False,
 ):
     """
     Function to process the data from the json file to
     Data is processed for MLM (Masked Language Model) task
     """
+    if Azure:
+        names = {
+            "event_id": "encounterKey",
+            "event_date": "date",
+            "birth_date": "BirthDate",
+            "events": "Events",
+        }
+    else:
+        names = {
+            "event_id": "admid",
+            "event_date": "admdate",
+            "birth_date": "birthdate",
+            "events": "events",
+        }
 
-    max_length = 512  # maximum length of sequence - currently given by BERT
     processed_data = {}
 
     for patient, patient_data in data.items():
-        birth_date = datetime.strptime(patient_data["birthdate"], "%Y-%m-%d")
+        birth_date = datetime.strptime(patient_data[names["birth_date"]], "%Y-%m-%d")
         events = patient_data["events"]
-        events.sort(key=lambda x: x["admdate"])  # Sort events by 'admdate'
+        events.sort(key=lambda x: x[names["event_date"]])  # Sort events by 'admdate'
 
-        # Group 'admdate' and 'codes' with same 'admid' together
+        # Group date and 'codes' with same ID together
         admid_groups = {}
         for event in events:
-            if event["admid"] in admid_groups:
-                admid_groups[event["admid"]][0].append(event["admdate"])
-                admid_groups[event["admid"]][1].append(event["codes"])
+            if event[names["event_id"]] in admid_groups:
+                admid_groups[event[names["event_id"]]][0].append(
+                    event[names["event_date"]]
+                )
+                admid_groups[event[names["event_id"]]][1].append(event["codes"])
             else:
-                admid_groups[event["admid"]] = [[event["admdate"]], [event["codes"]]]
+                admid_groups[event[names["event_id"]]] = [
+                    [event[names["event_date"]]],
+                    [event["codes"]],
+                ]
 
-        # Arrange 'admdate' and 'codes' into sequences with '[SEP]' separating different 'admid' groups
+        # Arrange dates and 'codes' into sequences with '[SEP]' separating different ID groups
 
         # Initialize sequences and insert start token
         date_sequence = [EMPTY_TOKEN_NS]
@@ -136,13 +156,13 @@ def process_data_MLM(
         # Attentions masks
 
         # Mask codes
-        masked_codes, masked_label, masked_index = random_masking(
-            sequences["codes"], vocab_list, word_to_idx
+        true_codes, masked_codes, output_labels = random_masking(
+            sequences["codes"], vocab_list, word_to_idx, probability=mask_prob
         )
 
+        sequences["true_codes"] = true_codes
         sequences["masked_codes"] = masked_codes
-        sequences["masked_label"] = masked_label
-        sequences["masked_index"] = masked_index
+        sequences["output_labels"] = output_labels
         sequences["patient"] = int(patient)
     return processed_data
 

@@ -53,19 +53,19 @@ def load_vocab(
 
 
 # # %% Test Tokenizer build
-# file_path = "H:/Code/transformerEHR/data/syntheticData.json"
+# file_path = "/Users/mikkelsinkjaer/Library/Mobile Documents/com~apple~CloudDocs/transEHR/Code/transformerEHR/data/syntheticData.json"
 # with open(file_path) as f:
 #     data = json.load(f)
 
 # vocab_list, word_to_idx = build_vocab(
-#     data, save_file="H:/Code/transformerEHR/data/vocab.txt"
+#     data, save_file="/Users/mikkelsinkjaer/Library/Mobile Documents/com~apple~CloudDocs/transEHR/Code/transformerEHR/dataLoader/vocab.txt"
 # )
 
 # print("Known token:", vocab_list["Q12"])
 # print("Unknown token:", vocab_list["Q1"])
 
 # # %% Test Tokenizer load
-# vocab_list, word_to_idx = load_vocab("H:/Code/transformerEHR/data/vocab.txt")
+# vocab_list, word_to_idx = load_vocab("/Users/mikkelsinkjaer/Library/Mobile Documents/com~apple~CloudDocs/transEHR/Code/transformerEHR/dataLoader/vocab.txt")
 # print("Known token:", vocab_list["Q12"])
 # print("Unknown token:", vocab_list["Q1"])
 # # %%

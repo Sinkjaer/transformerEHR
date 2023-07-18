@@ -3,6 +3,8 @@ import sys
 
 sys.path.insert(0, "../")
 
+Azure = False
+
 # %%
 from common.common import create_folder
 from common.pytorch import load_model
@@ -21,6 +23,9 @@ import time
 import torch.nn as nn
 import os
 import json
+import multiprocessing
+
+multiprocessing.set_start_method("fork")
 
 
 # %%
@@ -39,66 +44,63 @@ class BertConfig(Bert.modeling.BertConfig):
             initializer_range=config.get("initializer_range"),
         )
         self.seg_vocab_size = config.get("seg_vocab_size")
-
-
-class TrainConfig(object):
-    def __init__(self, config):
-        self.batch_size = config.get("batch_size")
-        self.use_cuda = config.get("use_cuda")
-        self.max_len_seq = config.get("max_len_seq")
-        self.train_loader_workers = config.get("train_loader_workers")
-        self.test_loader_workers = config.get("test_loader_workers")
-        self.device = config.get("device")
-        self.output_dir = config.get("output_dir")
-        self.output_name = config.get("output_name")
-        self.best_name = config.get("best_name")
+        self.age_vocab_size = config.get("age_vocab_size")
 
 
 # %%
-file_config = {
-    "vocab": "H:/Code/transformerEHR/data/vocab.txt",  # vocabulary idx2token, token2idx
-    "data": "H:/Code/transformerEHR/data/syntheticData.json",  # formated data
-    "model_path": "H:/Code/transformerEHR/model/weights",  # where to save model
-    "model_name": "test",  # model name
-    "file_name": "H:/Code/transformerEHR/model/log",  # log path
-}
+if Azure:
+    file_config = {
+        "vocab": "../dataloader/vocab.txt",  # vocabulary idx2token, token2idx
+        "data": "../../EHR_data/CoercionData.json",  # formated data
+        "model_path": "model/model1/",  # where to save model
+        "model_name": "test",  # model name
+        "file_name": "log",  # log path
+    }
+else:
+    file_config = {
+        "vocab": "/Users/mikkelsinkjaer/Library/Mobile Documents/com~apple~CloudDocs/transEHR/Code/transformerEHR/data/vocab.txt",  # vocabulary idx2token, token2idx
+        "data": "/Users/mikkelsinkjaer/Library/Mobile Documents/com~apple~CloudDocs/transEHR/Code/transformerEHR/data/syntheticData.json",  # formated data
+        "model_path": "model/model1/",  # where to save model
+        "model_name": "test",  # model name
+        "file_name": "log",  # log path
+    }
 create_folder(file_config["model_path"])
 
-# %%
 global_params = {"max_seq_len": 512, "gradient_accumulation_steps": 1}
 
 optim_param = {"lr": 3e-5, "warmup_proportion": 0.1, "weight_decay": 0.01}
 
 train_params = {
-    "batch_size": 1,
-    "use_cuda": True,
+    "batch_size": 2,
+    "use_cuda": False,
     "max_len_seq": global_params["max_seq_len"],
     "device": "cpu",  # "cuda:0",
 }
 
-# %%
 vocab_list, word_to_idx = load_vocab(file_config["vocab"])
 
-# %%
 with open(file_config["data"]) as f:
     data_json = json.load(f)
 
 # %%
-data = process_data_MLM(data_json, vocab_list, word_to_idx)
+# Data loader
+data = process_data_MLM(data_json, vocab_list, word_to_idx, mask_prob=0.20, Azure=Azure)
 masked_data = MaskedDataset(data)
+sample = next(iter(masked_data))
 
+# %%
 trainload = DataLoader(
     dataset=masked_data,
     batch_size=train_params["batch_size"],
     shuffle=True,
-    num_workers=2,
+    # num_workers=1,
 )
 
-# %%
 model_config = {
     "vocab_size": len(vocab_list),  # number of disease + symbols for word embedding
     "hidden_size": 288,  # word embedding and seg embedding hidden size
     "seg_vocab_size": 2,  # number of vocab for seg embedding
+    "age_vocab_size": 144,  # number of vocab for age embedding
     "max_position_embedding": train_params["max_len_seq"],  # maximum number of tokens
     "hidden_dropout_prob": 0.1,  # dropout rate
     "num_hidden_layers": 6,  # number of multi-head attention layers required
@@ -109,30 +111,26 @@ model_config = {
     "initializer_range": 0.02,  # parameter weight initializer range
 }
 
-# %%
 conf = BertConfig(model_config)
 model = BertForMaskedLM(conf)
 
-# %%
 model = model.to(train_params["device"])
 optim = adam(params=list(model.named_parameters()), config=optim_param)
 
 
-# %%
 def cal_acc(label, pred):
-    logs = nn.LogSoftmax()
     label = label.cpu().numpy()
     ind = np.where(label != -1)[0]
     truepred = pred.detach().cpu().numpy()
     truepred = truepred[ind]
     truelabel = label[ind]
-    truepred = logs(torch.tensor(truepred))
+    truepred = torch.from_numpy(truepred)
+    truepred = torch.nn.functional.log_softmax(truepred, dim=1)
     outs = [np.argmax(pred_x) for pred_x in truepred.numpy()]
     precision = skm.precision_score(truelabel, outs, average="micro")
     return precision
 
 
-# %%
 def train(e, loader):
     tr_loss = 0
     temp_loss = 0
@@ -143,6 +141,7 @@ def train(e, loader):
     for step, batch in enumerate(loader):
         cnt += 1
         batch = tuple(t.to(train_params["device"]) for t in batch)
+
         (
             dates_ids,
             age_ids,
@@ -150,16 +149,16 @@ def train(e, loader):
             posi_ids,
             segment_ids,
             attMask,
-            masked_label,
+            output_labels,
         ) = batch
         loss, pred, label = model(
             input_ids,
-            dates_ids,
-            age_ids,
-            segment_ids,
-            posi_ids,
+            dates_ids=dates_ids,
+            age_ids=age_ids,
+            seg_ids=segment_ids,
+            posi_ids=posi_ids,
             attention_mask=attMask,
-            masked_lm_labels=masked_label,
+            masked_lm_labels=output_labels,
         )
         if global_params["gradient_accumulation_steps"] > 1:
             loss = loss / global_params["gradient_accumulation_steps"]
@@ -174,7 +173,11 @@ def train(e, loader):
         if step % 200 == 0:
             print(
                 "epoch: {}\t| cnt: {}\t|Loss: {}\t| precision: {:.4f}\t| time: {:.2f}".format(
-                    e, cnt, temp_loss / 2000, cal_acc(label, pred), time.time() - start
+                    e,
+                    cnt,
+                    temp_loss / 200,
+                    cal_acc(label, pred),
+                    time.time() - start,
                 )
             )
             temp_loss = 0
