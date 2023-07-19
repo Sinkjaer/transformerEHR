@@ -59,10 +59,11 @@ def process_data_MLM(
     Azure=False,
 ):
     """
-    Function to process the data from the json file to
-    Data is processed for MLM (Masked Language Model) task
+    Function to process the data from the json file.
+    Data is processed for the MLM (Masked Language Model) task.
     """
     if Azure:
+        # Azure specific name mappings
         names = {
             "event_id": "EncounterKey",
             "event_date": "Time",
@@ -71,23 +72,32 @@ def process_data_MLM(
             "codes": "Type",
         }
     else:
+        # Non-Azure name mappings
         names = {
             "event_id": "admid",
             "event_date": "admdate",
             "birth_date": "birthdate",
             "events": "events",
-            "codes" : "codes",
+            "codes": "codes",
         }
 
     processed_data = {}
+    count = 0
 
     for patient, patient_data in tqdm(data.items()):
+
+        count+= 1
+        if count == 1000:
+            break
+        # Process birth date and events
         birth_date = datetime.strptime(patient_data[names["birth_date"]], "%Y-%m-%d")
         events = patient_data[names["events"]]
-        events = [event for event in events if event.get(names["event_date"])] # Remove empty items
+        events = [
+            event for event in events if event.get(names["event_date"])
+        ]  # Remove empty items
         events.sort(key=lambda x: x[names["event_date"]])  # Sort events by dates
 
-        # Group date and 'codes' with same ID together
+        # Group date and 'codes' with the same ID together
         admid_groups = {}
         for event in events:
             if event[names["event_id"]] in admid_groups:
@@ -101,64 +111,75 @@ def process_data_MLM(
                     [event[names["codes"]]],
                 ]
 
-        # Arrange dates and 'codes' into sequences with '[SEP]' separating different ID groups
-
         # Initialize sequences and insert start token
         date_sequence = [EMPTY_TOKEN_NS]
         age_sequence = [EMPTY_TOKEN_NS]
         code_sequence = [START_TOKEN]
-        position_sqeuence = [EMPTY_TOKEN_NS]
+        position_sequence = [EMPTY_TOKEN_NS]
         segment_sequence = [EMPTY_TOKEN_NS]
 
         position = 1
         segment = 1
+        total_length = 0
+
         for date_list, code_list in admid_groups.values():
+            # Check if adding the current group exceeds the max_length
+            if (
+                total_length + len(code_list) + 2 > max_length
+            ):  # 2 for SEP_TOKEN and potential final [SEP] after loop
+                break
+
+            # Add date and code sequences
             date_sequence += [
                 (datetime.strptime(date[:10], "%Y-%m-%d") - ref_date).days
-                for date in date_list # use date[:10] beacuse some dates are are of format "%Y-%m-%dT%H:%M:%SZ"
+                for date in date_list
             ]
             age_sequence += [
-                relativedelta(datetime.strptime(date[:10],  "%Y-%m-%d"), birth_date).years
-                + relativedelta(datetime.strptime(date[:10],  "%Y-%m-%d"), birth_date).months
+                relativedelta(
+                    datetime.strptime(date[:10], "%Y-%m-%d"), birth_date
+                ).years
+                + relativedelta(
+                    datetime.strptime(date[:10], "%Y-%m-%d"), birth_date
+                ).months
                 / 12
                 for date in date_list
             ]
             code_sequence += code_list + [SEP_TOKEN]
-            position_sqeuence += [position] * (len(code_list) + 1)
+            position_sequence += [position] * (len(code_list) + 1)
             segment_sequence += [segment] * (len(code_list) + 1)
-            position += 1
-            segment *= -1
 
-            # Add segment date and age where seprator is added
-            date_sequence += [date_sequence[-1]]
-            age_sequence += [age_sequence[-1]]
+            # Update position, segment, and total length
+            position += 1
+            segment = position % 2
+            total_length += len(code_list) + 2
 
         # Remove the last '[SEP]' from the sequences
         date_sequence = date_sequence[:-1]
         age_sequence = age_sequence[:-1]
         code_sequence = code_sequence[:-1]
         segment_sequence = segment_sequence[:-1]
-        position_sqeuence = position_sqeuence[:-1]
+        position_sequence = position_sequence[:-1]
 
         processed_data[patient] = {
             "dates": date_sequence,
             "age": age_sequence,
             "codes": code_sequence,
-            "position": position_sqeuence,
+            "position": position_sequence,
             "segment": segment_sequence,
         }
 
     for patient, sequences in processed_data.items():
-        sequences["attention_mask"] = [1] * len(sequences["codes"]) + [0] * (
-            max_length - len(sequences["codes"])
-        )
-        # Padding all sequences to the max length*
+        # Padding sequences to the max_length
         for key in sequences:
             if key == "codes":
                 sequences[key] += [PAD_TOKEN] * (max_length - len(sequences[key]))
             else:
                 sequences[key] += [EMPTY_TOKEN_NS] * (max_length - len(sequences[key]))
-        # Attentions masks
+
+        # Attention masks
+        sequences["attention_mask"] = [1] * len(sequences["codes"]) + [0] * (
+            max_length - len(sequences["codes"])
+        )
 
         # Mask codes
         true_codes, masked_codes, output_labels = random_masking(
@@ -169,6 +190,7 @@ def process_data_MLM(
         sequences["masked_codes"] = masked_codes
         sequences["output_labels"] = output_labels
         sequences["patient"] = int(patient)
+
     return processed_data
 
 

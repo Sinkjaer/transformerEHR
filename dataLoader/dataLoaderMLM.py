@@ -82,8 +82,13 @@ def process_data_MLM(
         }
 
     processed_data = {}
+    count = 0
 
     for patient, patient_data in tqdm(data.items()):
+
+        count+= 1
+        if count == 1000:
+            break
         # Process birth date and events
         birth_date = datetime.strptime(patient_data[names["birth_date"]], "%Y-%m-%d")
         events = patient_data[names["events"]]
@@ -145,7 +150,7 @@ def process_data_MLM(
 
             # Update position, segment, and total length
             position += 1
-            segment *= -1
+            segment = position % 2
             total_length += len(code_list) + 2
 
         # Remove the last '[SEP]' from the sequences

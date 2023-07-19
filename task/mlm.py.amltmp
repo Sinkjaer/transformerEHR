@@ -151,6 +151,7 @@ def train(e, loader):
             attMask,
             output_labels,
         ) = batch
+        print('segment', torch.sum(input_ids)) 
         loss, pred, label = model(
             input_ids,
             dates_ids=dates_ids,
