@@ -68,13 +68,13 @@ create_folder(file_config["model_path"])
 
 global_params = {"max_seq_len": 512, "gradient_accumulation_steps": 1}
 
-optim_param = {"lr": 3e-5, "warmup_proportion": 0.1, "weight_decay": 0.01}
+optim_param = {"lr": 3e-6, "warmup_proportion": 0.1, "weight_decay": 0.01}
 
 train_params = {
-    "batch_size": 1,
+    "batch_size": 42,
     "use_cuda": False,
     "max_len_seq": global_params["max_seq_len"],
-    "device": "cpu",  # "cuda:0",
+    "device": "cuda:0",
 }
 
 vocab_list, word_to_idx = load_vocab(file_config["vocab"])
@@ -93,7 +93,7 @@ trainload = DataLoader(
     dataset=masked_data,
     batch_size=train_params["batch_size"],
     shuffle=True,
-    num_workers=1,
+    # num_workers=1,
 )
 
 model_config = {
@@ -127,6 +127,9 @@ def cal_acc(label, pred):
     truepred = torch.from_numpy(truepred)
     truepred = torch.nn.functional.log_softmax(truepred, dim=1)
     outs = [np.argmax(pred_x) for pred_x in truepred.numpy()]
+    # Consider only the non-padded tokens
+    outs = np.array(outs)[truelabel != 3]
+    truelabel = truelabel[truelabel != 3]
     precision = skm.precision_score(truelabel, outs, average="micro")
     return precision
 
@@ -151,7 +154,6 @@ def train(e, loader):
             attMask,
             output_labels,
         ) = batch
-        print('segment', torch.sum(input_ids)) 
         loss, pred, label = model(
             input_ids,
             dates_ids=dates_ids,
