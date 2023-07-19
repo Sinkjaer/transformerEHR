@@ -62,7 +62,7 @@ else:
         "data": "/Users/mikkelsinkjaer/Library/Mobile Documents/com~apple~CloudDocs/transEHR/Code/transformerEHR/data/syntheticData.json",  # formated data
         "model_path": "model/model1/",  # where to save model
         "model_name": "test",  # model name
-        "file_name": "log",  # log path
+        "file_name": "log.txt",  # log path
     }
 create_folder(file_config["model_path"])
 
@@ -173,12 +173,12 @@ def train(e, loader):
         nb_tr_examples += input_ids.size(0)
         nb_tr_steps += 1
 
-        if step % 10 == 0:
+        if step % 100 == 0:
             print(
                 "epoch: {}\t| cnt: {}\t|Loss: {}\t| precision: {:.4f}\t| time: {:.2f}".format(
                     e,
                     cnt,
-                    temp_loss / 10,
+                    temp_loss / 100,
                     cal_acc(label, pred),
                     time.time() - start,
                 )

@@ -86,7 +86,7 @@ def process_data_MLM(
 
     for patient, patient_data in tqdm(data.items()):
         count += 1
-        if count == 10000:
+        if count == 50000:
             break
         # Process birth date and events
         birth_date = datetime.strptime(patient_data[names["birth_date"]], "%Y-%m-%d")
