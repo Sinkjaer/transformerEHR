@@ -208,6 +208,7 @@ def process_data_MLM(
 # # Test data_loader
 # sample = next(iter(data_loader))
 
+
 # %% Coercion risk data loader
 class CoercionRiskDataset(Dataset):
     def __init__(self, data):
@@ -220,7 +221,8 @@ class CoercionRiskDataset(Dataset):
         dates = torch.tensor(self.data[idx]["dates"])
         age = torch.tensor(self.data[idx]["age"])
         print(self.data[idx]["codes"])
-        input_sequence = torch.tensor(self.data[idx]["codes"])
+        print(self.data[idx]["input_sequence"])
+        input_sequence = torch.tensor(self.data[idx]["input_sequence"])
         position = torch.tensor(self.data[idx]["position"])
         segment = torch.tensor(self.data[idx]["segment"])
         attension_mask = torch.tensor(self.data[idx]["attention_mask"])
@@ -378,7 +380,7 @@ def process_data_CoercionRisk(
                     if item == SEP_TOKEN
                 ]
                 indices = indices[
-                    5:
+                    0:
                 ]  # Remove first 5 SEP tokens, to ensure enough context is present
                 sample_index = (
                     random.sample(indices, 1)[0] + 1
@@ -394,10 +396,10 @@ def process_data_CoercionRisk(
             indices = [
                 index for index, item in enumerate(code_sequence) if item == SEP_TOKEN
             ]
-            # FIXME fail when there is less than 5 encounter 
+            # FIXME fail when there is less than 5 encounter
             indices = indices[
                 0:
-            ] # Remove first 5 SEP tokens, to ensure enough context is present
+            ]  # Remove first 5 SEP tokens, to ensure enough context is present
             sample_index = (
                 random.sample(indices, 1)[0] + 1
             )  # Add 1 to get the index of next segment
@@ -428,9 +430,10 @@ def process_data_CoercionRisk(
         for key in sequences:
             if key == "codes":
                 sequences[key] += [PAD_TOKEN] * (max_length - len(sequences[key]))
-            elif key!='classification_labels':
+            elif key != "classification_labels":
                 sequences[key] += [EMPTY_TOKEN_NS] * (max_length - len(sequences[key]))
 
+        sequences["input_sequence"] = vocab_list[sequences["codes"]]
         # Attention masks
         sequences["attention_mask"] = [1] * len(sequences["codes"]) + [0] * (
             max_length - len(sequences["codes"])
