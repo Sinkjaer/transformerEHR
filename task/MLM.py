@@ -3,7 +3,7 @@ import sys
 
 sys.path.insert(0, "../")
 
-Azure = True
+Azure = False
 
 # %%
 from common.common import create_folder
@@ -51,18 +51,24 @@ class BertConfig(Bert.modeling.BertConfig):
 if Azure:
     file_config = {
         "vocab": "../dataloader/vocab.txt",  # vocabulary idx2token, token2idx
-        "data": "../../EHR_data/CoercionData.json",  # formated data
+        "data_train": "../../EHR_data/CoercionData_train.json",  # formated data
+        "data_val": "../../EHR_data/CoercionData_val.json",  # formated data
         "model_path": "model/model1/",  # where to save model
         "model_name": "test",  # model name
         "file_name": "log",  # log path
+        "use_cuda": True,
+        "device$": "cuda:0",
     }
 else:
     file_config = {
         "vocab": "/Users/mikkelsinkjaer/Library/Mobile Documents/com~apple~CloudDocs/transEHR/Code/transformerEHR/data/vocab.txt",  # vocabulary idx2token, token2idx
-        "data": "/Users/mikkelsinkjaer/Library/Mobile Documents/com~apple~CloudDocs/transEHR/Code/transformerEHR/data/syntheticData.json",  # formated data
+        "data_train": "/Users/mikkelsinkjaer/Library/Mobile Documents/com~apple~CloudDocs/transEHR/Code/transformerEHR/data/syntheticData.json",
+        "data_val": "/Users/mikkelsinkjaer/Library/Mobile Documents/com~apple~CloudDocs/transEHR/Code/transformerEHR/data/syntheticData_val.json",
         "model_path": "model/model1/",  # where to save model
         "model_name": "test",  # model name
         "file_name": "log.txt",  # log path
+        "use_cuda": False,
+        "device": "cpu",
     }
 create_folder(file_config["model_path"])
 
@@ -71,15 +77,15 @@ global_params = {"max_seq_len": 512, "gradient_accumulation_steps": 1}
 optim_param = {"lr": 3e-6, "warmup_proportion": 0.1, "weight_decay": 0.01}
 
 train_params = {
-    "batch_size": 42,
-    "use_cuda": False,
+    "batch_size": 1,
+    "use_cuda": file_config["use_cuda"],
     "max_len_seq": global_params["max_seq_len"],
-    "device": "cuda:0",
+    "device": file_config["device"],
 }
 
 vocab_list, word_to_idx = load_vocab(file_config["vocab"])
 
-with open(file_config["data"]) as f:
+with open(file_config["data_train"]) as f:
     data_json = json.load(f)
 
 # %%
@@ -92,7 +98,7 @@ sample = next(iter(masked_data))
 trainload = DataLoader(
     dataset=masked_data,
     batch_size=train_params["batch_size"],
-    shuffle=True,
+    shuffle=False,
     # num_workers=1,
 )
 

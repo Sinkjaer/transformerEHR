@@ -13,9 +13,10 @@ from torch.utils.data import Dataset, DataLoader
 from dataLoader.utils import random_masking
 
 from tqdm import tqdm
+import random
 
 
-# %% DataLoader
+# %% MLM data loader
 class MaskedDataset(Dataset):
     def __init__(self, data):
         self.data = list(data.values())
@@ -31,7 +32,6 @@ class MaskedDataset(Dataset):
         segment = torch.tensor(self.data[idx]["segment"])
         attension_mask = torch.tensor(self.data[idx]["attention_mask"])
         output_labels = torch.tensor(self.data[idx]["output_labels"])
-        # patient = torch.tensor(self.data[idx]["patient"])
         return (
             dates,
             age,
@@ -44,7 +44,6 @@ class MaskedDataset(Dataset):
         )
 
 
-# %% Tokenize including dates
 def process_data_MLM(
     data,
     vocab_list,
@@ -205,5 +204,233 @@ def process_data_MLM(
 # dataset = MaskedDataset(data)
 # data_loader = DataLoader(dataset, batch_size=2, shuffle=False)
 
+
 # # Test data_loader
 # sample = next(iter(data_loader))
+# %% Coercion risk data loader
+class CoercionRiskDataset(Dataset):
+    def __init__(self, data):
+        self.data = list(data.values())
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        dates = torch.tensor(self.data[idx]["dates"])
+        age = torch.tensor(self.data[idx]["age"])
+        input = torch.tensor(self.data[idx]["codes"])
+        position = torch.tensor(self.data[idx]["position"])
+        segment = torch.tensor(self.data[idx]["segment"])
+        attension_mask = torch.tensor(self.data[idx]["attention_mask"])
+        classification_labels = torch.tensor(self.data[idx]["classification_labels"])
+        return (
+            dates,
+            age,
+            input,
+            position,
+            segment,
+            attension_mask,
+            classification_labels,
+        )
+
+
+def process_data_CoercionRisk(
+    data,
+    vocab_list,
+    word_to_idx,
+    START_TOKEN="<CLS>",
+    SEP_TOKEN="<SEP>",
+    PAD_TOKEN="<PAD>",
+    EMPTY_TOKEN_NS=0,
+    ref_date=datetime(1900, 1, 1),
+    max_length=512,
+    mask_prob=0.15,
+    Azure=False,
+):
+    """
+    Function to process the data from the json file.
+    Data is processed for the MLM (Masked Language Model) task.
+    """
+    if Azure:
+        # Azure specific name mappings
+        names = {
+            "event_id": "EncounterKey",
+            "event_date": "Time",
+            "birth_date": "BirthDate",
+            "events": "Events",
+            "codes": "Type",
+        }
+    else:
+        # Non-Azure name mappings
+        names = {
+            "event_id": "admid",
+            "event_date": "admdate",
+            "birth_date": "birthdate",
+            "events": "events",
+            "codes": "codes",
+        }
+
+    processed_data = {}
+    count = 0
+
+    for patient, patient_data in tqdm(data.items()):
+        # Make only one iteration
+        if count > 0:
+            break
+        count += 1
+
+        # Process birth date and events
+        birth_date = datetime.strptime(patient_data[names["birth_date"]], "%Y-%m-%d")
+        events = patient_data[names["events"]]
+        events = [
+            event for event in events if event.get(names["event_date"])
+        ]  # Remove empty items
+        events.sort(key=lambda x: x[names["event_date"]])  # Sort events by dates
+
+        # Group date and 'codes' with the same ID together
+        admid_groups = {}
+        for event in events:
+            if event[names["event_id"]] in admid_groups:
+                admid_groups[event[names["event_id"]]][0].append(
+                    event[names["event_date"]]
+                )
+                admid_groups[event[names["event_id"]]][1].append(event[names["codes"]])
+            else:
+                admid_groups[event[names["event_id"]]] = [
+                    [event[names["event_date"]]],
+                    [event[names["codes"]]],
+                    [event[names["event_id"]]],
+                ]
+
+        # Initialize sequences and insert start token
+        date_sequence = [EMPTY_TOKEN_NS]
+        age_sequence = [EMPTY_TOKEN_NS]
+        code_sequence = [START_TOKEN]
+        position_sequence = [EMPTY_TOKEN_NS]
+        segment_sequence = [EMPTY_TOKEN_NS]
+        event_id_sequence = [EMPTY_TOKEN_NS]
+
+        position = 1
+        segment = 1
+        total_length = 0
+        coercion_label = -1
+
+        for date_list, code_list, event_id in admid_groups.values():
+            # Check if adding the current group exceeds the max_length
+            if (
+                total_length + len(code_list) + 2 > max_length
+            ):  # 2 for SEP_TOKEN and potential final [SEP] after loop
+                break
+
+            # Add date and code sequences
+            date_sequence += [
+                (datetime.strptime(date[:10], "%Y-%m-%d") - ref_date).days
+                for date in date_list
+            ]
+            age_sequence += [
+                relativedelta(
+                    datetime.strptime(date[:10], "%Y-%m-%d"), birth_date
+                ).years
+                + relativedelta(
+                    datetime.strptime(date[:10], "%Y-%m-%d"), birth_date
+                ).months
+                / 12
+                for date in date_list
+            ]
+            code_sequence += code_list + [SEP_TOKEN]
+            position_sequence += [position] * (len(code_list) + 1)
+            segment_sequence += [segment] * (len(code_list) + 1)
+            event_id_sequence += [event_id] * (len(code_list) + 1)
+
+            # Update position, segment, and total length
+            position += 1
+            segment = position % 2
+            total_length += len(code_list) + 2
+
+        # Sample encounter to predict coercion risk
+        EncounterKey_coercion = [
+            item["EncouterKey"]
+            for item in patient_data["Coercion"]
+            if (item["Coercion"]["Type_2"] == 1) or (item["Coercion"]["Type_3"] == 1)
+        ]  # Check if coercion is present
+        if any(EncounterKey_coercion):
+            # sample a random encounter with coercion and get the first index where the coercion is present in
+            if random.random() < 0.5:
+                coercion_label = 1
+
+                sample_encounter = random.sample(EncounterKey_coercion, 1)[0]
+                sample_index = event_id_sequence.index(sample_encounter)
+
+                # Trim sequence
+                code_sequence = code_sequence[:sample_index]
+                date_sequence = date_sequence[:sample_index]
+                segment_sequence = segment_sequence[:sample_index]
+
+            # Sample random encounter
+            else:
+                coercion_label = 0
+                # Get SEP token index
+                indices = [
+                    index
+                    for index, item in enumerate(code_sequence)
+                    if item == SEP_TOKEN
+                ]
+                indices = indices[
+                    5:
+                ]  # Remove first 5 SEP tokens, to ensure enough context is present
+                sample_index = (
+                    random.sample(indices, 1)[0] + 1
+                )  # Add 1 to get the index of next segment
+
+                # Trim sequence
+                code_sequence = code_sequence[:sample_index]
+                date_sequence = date_sequence[:sample_index]
+                segment_sequence = segment_sequence[:sample_index]
+        else:
+            coercion_label = 0
+            # Get SEP token index
+            indices = [
+                index for index, item in enumerate(code_sequence) if item == SEP_TOKEN
+            ]
+            indices = indices[
+                5:
+            ]  # Remove first 5 SEP tokens, to ensure enough context is present
+            sample_index = (
+                random.sample(indices, 1)[0] + 1
+            )  # Add 1 to get the index of next segment
+
+            # Trim sequence
+            code_sequence = code_sequence[:sample_index]
+            date_sequence = date_sequence[:sample_index]
+            segment_sequence = segment_sequence[:sample_index]
+
+        # Remove the last '[SEP]' from the sequences
+        date_sequence = date_sequence[:-1]
+        age_sequence = age_sequence[:-1]
+        code_sequence = code_sequence[:-1]
+        segment_sequence = segment_sequence[:-1]
+        position_sequence = position_sequence[:-1]
+
+        processed_data[patient] = {
+            "dates": date_sequence,
+            "age": age_sequence,
+            "codes": code_sequence,
+            "position": position_sequence,
+            "segment": segment_sequence,
+            "classification_labels": coercion_label,
+        }
+
+    for patient, sequences in processed_data.items():
+        # Padding sequences to the max_length
+        for key in sequences:
+            if key == "codes":
+                sequences[key] += [PAD_TOKEN] * (max_length - len(sequences[key]))
+            else:
+                sequences[key] += [EMPTY_TOKEN_NS] * (max_length - len(sequences[key]))
+
+        # Attention masks
+        sequences["attention_mask"] = [1] * len(sequences["codes"]) + [0] * (
+            max_length - len(sequences["codes"])
+        )
+
+    return processed_data
