@@ -11,7 +11,7 @@ current_directory = os.getcwd()
 # Print the current working directory
 print(current_directory)
 
-Azure = True
+Azure = False
 
 # %%
 from common.common import create_folder
@@ -31,9 +31,6 @@ import time
 import torch.nn as nn
 import os
 import json
-import multiprocessing
-
-multiprocessing.set_start_method("fork")
 
 
 # %%
@@ -60,20 +57,20 @@ if Azure:
     file_config = {
         "vocab": "../dataloader/vocab.txt",  # vocabulary idx2token, token2idx
         "data_train": "../../EHR_data/data/pre_train_training_set.json",  # formated data
-        "data_val": "../../EHR_data/data/pre_train_validation_set.json",  # formated data
-        "model_path": "model/model1/",  # where to save model
-        "model_name": "test",  # model name
-        "file_name": "log",  # log path
+        "data_val": "../../EHR_data/data/pre_train_validation.json",  # formated data
+        "model_path": "MLM/model1",  # where to save model
+        "model_name": "model",  # model name
+        "file_name": "log.txt",  # log path
         "use_cuda": True,
         "device": "cuda:0",
     }
 else:
     file_config = {
         "vocab": "/Users/mikkelsinkjaer/Library/Mobile Documents/com~apple~CloudDocs/transEHR/Code/transformerEHR/data/vocab.txt",  # vocabulary idx2token, token2idx
-        "data_train": "/Users/mikkelsinkjaer/Library/Mobile Documents/com~apple~CloudDocs/transEHR/Code/transformerEHR/data/syntheticData.json",
+        "data_train": "/Users/mikkelsinkjaer/Library/Mobile Documents/com~apple~CloudDocs/transEHR/Code/transformerEHR/data/syntheticData_train.json",
         "data_val": "/Users/mikkelsinkjaer/Library/Mobile Documents/com~apple~CloudDocs/transEHR/Code/transformerEHR/data/syntheticData_val.json",
-        "model_path": "model/model1/",  # where to save model
-        "model_name": "test",  # model name
+        "model_path": "MLM/model1",  # where to save model
+        "model_name": "model",  # model name
         "file_name": "log.txt",  # log path
         "use_cuda": False,
         "device": "cpu",
@@ -85,7 +82,7 @@ global_params = {"max_seq_len": 512, "gradient_accumulation_steps": 1}
 optim_param = {"lr": 3e-6, "warmup_proportion": 0.1, "weight_decay": 0.01}
 
 train_params = {
-    "batch_size": 1,
+    "batch_size": 128,
     "use_cuda": file_config["use_cuda"],
     "max_len_seq": global_params["max_seq_len"],
     "device": file_config["device"],
@@ -108,28 +105,6 @@ sample = next(iter(masked_data))
 # %%
 trainload = DataLoader(
     dataset=masked_data,
-    batch_size=train_params["batch_size"],
-    shuffle=False,
-    # num_workers=1,
-)
-
-with open(file_config["data_val"]) as f:
-    val_data_json = json.load(f)
-
-# Build vocab
-val_vocab_list, val_word_to_idx = build_vocab(val_data_json, Azure=Azure)
-
-# %%
-# Data loader
-val_data = process_data_MLM(
-    val_data_json, val_vocab_list, val_word_to_idx, mask_prob=0.20, Azure=Azure
-)
-val_masked_data = MaskedDataset(val_data)
-val_sample = next(iter(val_masked_data))
-
-# %%
-valload = DataLoader(
-    dataset=val_masked_data,
     batch_size=train_params["batch_size"],
     shuffle=False,
     # num_workers=1,
@@ -241,18 +216,36 @@ def train(e, loader):
     torch.save(model_to_save.state_dict(), output_model_file)
 
     cost = time.time() - start
-    return tr_loss, cost
+    return (
+        tr_loss / nb_tr_examples,
+        cost,
+    )  # Scale the loss by number of training examples
 
 
-def validate(loader):
-    val_loss = 0
-    nb_val_examples, nb_val_steps = 0, 0
-    cnt = 0
-    start = time.time()
+# Data loader for validation set
+with open(file_config["data_val"]) as f:
+    data_val_json = json.load(f)
 
+data_val = process_data_MLM(
+    data_val_json, vocab_list, word_to_idx, mask_prob=0.20, Azure=Azure
+)
+masked_data_val = MaskedDataset(data_val)
+
+valload = DataLoader(
+    dataset=masked_data_val,
+    batch_size=train_params["batch_size"],
+    shuffle=False,
+)
+
+
+def validation(loader):
+    model.eval()  # Set model to evaluation mode
+    total_acc = 0.0
+    total_loss = 0.0
+    total_count = 0
+    nb_val_examples = 0
     with torch.no_grad():
-        for step, batch in enumerate(loader):
-            cnt += 1
+        for batch in loader:
             batch = tuple(t.to(train_params["device"]) for t in batch)
 
             (
@@ -274,28 +267,25 @@ def validate(loader):
                 masked_lm_labels=output_labels,
             )
 
-            val_loss += loss.item()
-
+            total_acc += cal_acc(label, pred)
+            total_loss += loss.item()
+            total_count += 1
             nb_val_examples += input_ids.size(0)
-            nb_val_steps += 1
 
-    cost = time.time() - start
-    return val_loss, cost
+    model.train()  # Set model back to train mode
+    return total_loss / nb_val_examples, total_acc / total_count
 
 
-# %%
 f = open(os.path.join(file_config["model_path"], file_config["file_name"]), "w")
-f.write("{}\t{}\t{}\t{}\n".format("epoch", "train_loss", "val_loss", "time"))
+f.write("{}\t{}\t{}\t{}\t{}\n".format("epoch", "loss", "time", "val_loss", "val_acc"))
 for e in range(5):
-    train_loss, train_time_cost = train(e, trainload)
-    train_loss = train_loss / 1  # data_len
-    val_loss, val_time_cost = validate(valload)
-    val_loss = val_loss / 1  # data_len
+    loss, time_cost = train(e, trainload)
+    loss = loss / 1  # data_len
+    val_loss, val_acc = validation(valload)  # Calculate validation loss and accuracy
+    print(f"Validation loss at epoch {e} is {val_loss}, accuracy is {val_acc}")
     f.write(
-        "{}\t{}\t{}\t{}\n".format(
-            e, train_loss, val_loss, train_time_cost + val_time_cost
-        )
-    )
+        "{}\t{}\t{}\t{}\t{}\n".format(e, loss, time_cost, val_loss, val_acc)
+    )  # Log validation loss and accuracy
 f.close()
 
 # %%
