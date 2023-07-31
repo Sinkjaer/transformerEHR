@@ -3,7 +3,15 @@ import sys
 
 sys.path.insert(0, "../")
 
-Azure = False
+import os
+
+# Get the current working directory
+current_directory = os.getcwd()
+
+# Print the current working directory
+print(current_directory)
+
+Azure = True
 
 # %%
 from common.common import create_folder
@@ -51,13 +59,13 @@ class BertConfig(Bert.modeling.BertConfig):
 if Azure:
     file_config = {
         "vocab": "../dataloader/vocab.txt",  # vocabulary idx2token, token2idx
-        "data_train": "../../EHR_data/CoercionData_train.json",  # formated data
-        "data_val": "../../EHR_data/CoercionData_val.json",  # formated data
+        "data_train": "../../EHR_data/data/pre_train_training_set.json",  # formated data
+        "data_val": "../EHR_data/data/pre_train_validation.json",  # formated data
         "model_path": "model/model1/",  # where to save model
         "model_name": "test",  # model name
         "file_name": "log",  # log path
         "use_cuda": True,
-        "device$": "cuda:0",
+        "device": "cuda:0",
     }
 else:
     file_config = {
@@ -83,10 +91,13 @@ train_params = {
     "device": file_config["device"],
 }
 
-vocab_list, word_to_idx = load_vocab(file_config["vocab"])
+# vocab_list, word_to_idx = load_vocab(file_config["vocab"])
 
 with open(file_config["data_train"]) as f:
     data_json = json.load(f)
+
+# Build vocab
+vocab_list, word_to_idx = build_vocab(data_json, Azure=Azure)
 
 # %%
 # Data loader
@@ -214,7 +225,7 @@ def train(e, loader):
 # %%
 f = open(os.path.join(file_config["model_path"], file_config["file_name"]), "w")
 f.write("{}\t{}\t{}\n".format("epoch", "loss", "time"))
-for e in range(50):
+for e in range(5):
     loss, time_cost = train(e, trainload)
     loss = loss / 1  # data_len
     f.write("{}\t{}\t{}\n".format(e, loss, time_cost))

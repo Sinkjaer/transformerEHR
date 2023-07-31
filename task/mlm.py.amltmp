@@ -3,6 +3,14 @@ import sys
 
 sys.path.insert(0, "../")
 
+import os
+
+# Get the current working directory
+current_directory = os.getcwd()
+
+# Print the current working directory
+print(current_directory)
+
 Azure = True
 
 # %%
@@ -51,36 +59,45 @@ class BertConfig(Bert.modeling.BertConfig):
 if Azure:
     file_config = {
         "vocab": "../dataloader/vocab.txt",  # vocabulary idx2token, token2idx
-        "data": "../../EHR_data/CoercionData.json",  # formated data
+        "data_train": "../../EHR_data/data/pre_train_training_set.json",  # formated data
+        "data_val": "../EHR_data/data/pre_train_validation.json",  # formated data
         "model_path": "model/model1/",  # where to save model
         "model_name": "test",  # model name
         "file_name": "log",  # log path
+        "use_cuda": True,
+        "device": "cuda:0",
     }
 else:
     file_config = {
         "vocab": "/Users/mikkelsinkjaer/Library/Mobile Documents/com~apple~CloudDocs/transEHR/Code/transformerEHR/data/vocab.txt",  # vocabulary idx2token, token2idx
-        "data": "/Users/mikkelsinkjaer/Library/Mobile Documents/com~apple~CloudDocs/transEHR/Code/transformerEHR/data/syntheticData.json",  # formated data
+        "data_train": "/Users/mikkelsinkjaer/Library/Mobile Documents/com~apple~CloudDocs/transEHR/Code/transformerEHR/data/syntheticData.json",
+        "data_val": "/Users/mikkelsinkjaer/Library/Mobile Documents/com~apple~CloudDocs/transEHR/Code/transformerEHR/data/syntheticData_val.json",
         "model_path": "model/model1/",  # where to save model
         "model_name": "test",  # model name
-        "file_name": "log",  # log path
+        "file_name": "log.txt",  # log path
+        "use_cuda": False,
+        "device": "cpu",
     }
 create_folder(file_config["model_path"])
 
 global_params = {"max_seq_len": 512, "gradient_accumulation_steps": 1}
 
-optim_param = {"lr": 3e-5, "warmup_proportion": 0.1, "weight_decay": 0.01}
+optim_param = {"lr": 3e-6, "warmup_proportion": 0.1, "weight_decay": 0.01}
 
 train_params = {
     "batch_size": 1,
-    "use_cuda": False,
+    "use_cuda": file_config["use_cuda"],
     "max_len_seq": global_params["max_seq_len"],
-    "device": "cpu",  # "cuda:0",
+    "device": file_config["device"],
 }
 
-vocab_list, word_to_idx = load_vocab(file_config["vocab"])
+# vocab_list, word_to_idx = load_vocab(file_config["vocab"])
 
-with open(file_config["data"]) as f:
+with open(file_config["data_train"]) as f:
     data_json = json.load(f)
+
+# Build vocab
+vocab_list, word_to_idx = build_vocab(data_json, Azure=Azure)
 
 # %%
 # Data loader
@@ -92,8 +109,8 @@ sample = next(iter(masked_data))
 trainload = DataLoader(
     dataset=masked_data,
     batch_size=train_params["batch_size"],
-    shuffle=True,
-    num_workers=1,
+    shuffle=False,
+    # num_workers=1,
 )
 
 model_config = {
@@ -127,6 +144,9 @@ def cal_acc(label, pred):
     truepred = torch.from_numpy(truepred)
     truepred = torch.nn.functional.log_softmax(truepred, dim=1)
     outs = [np.argmax(pred_x) for pred_x in truepred.numpy()]
+    # Consider only the non-padded tokens
+    outs = np.array(outs)[truelabel != 3]
+    truelabel = truelabel[truelabel != 3]
     precision = skm.precision_score(truelabel, outs, average="micro")
     return precision
 
@@ -151,7 +171,6 @@ def train(e, loader):
             attMask,
             output_labels,
         ) = batch
-        print('segment', torch.sum(input_ids)) 
         loss, pred, label = model(
             input_ids,
             dates_ids=dates_ids,
@@ -171,12 +190,12 @@ def train(e, loader):
         nb_tr_examples += input_ids.size(0)
         nb_tr_steps += 1
 
-        if step % 10 == 0:
+        if step % 100 == 0:
             print(
                 "epoch: {}\t| cnt: {}\t|Loss: {}\t| precision: {:.4f}\t| time: {:.2f}".format(
                     e,
                     cnt,
-                    temp_loss / 10,
+                    temp_loss / 100,
                     cal_acc(label, pred),
                     time.time() - start,
                 )
@@ -206,7 +225,7 @@ def train(e, loader):
 # %%
 f = open(os.path.join(file_config["model_path"], file_config["file_name"]), "w")
 f.write("{}\t{}\t{}\n".format("epoch", "loss", "time"))
-for e in range(50):
+for e in range(5):
     loss, time_cost = train(e, trainload)
     loss = loss / 1  # data_len
     f.write("{}\t{}\t{}\n".format(e, loss, time_cost))
