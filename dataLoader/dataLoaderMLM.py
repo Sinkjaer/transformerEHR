@@ -92,7 +92,7 @@ def process_data_MLM(
         events = patient_data[names["events"]]
         events = [
             event for event in events if event.get(names["event_date"])
-        ]  # Remove empty items 
+        ]  # Remove empty items
         events.sort(key=lambda x: x[names["event_date"]])  # Sort events by dates
 
         # Group date and 'codes' with the same ID together
@@ -152,7 +152,6 @@ def process_data_MLM(
         segment_sequence = segment_sequence[:-1]
         position_sequence = position_sequence[:-1]
 
-
         # Ensure that sequence is not to large
         date_sequence = date_sequence[-max_length:]
         age_sequence = age_sequence[-max_length:]
@@ -179,7 +178,6 @@ def process_data_MLM(
                 sequences[key] += [PAD_TOKEN] * (max_length - len(sequences[key]))
             else:
                 sequences[key] += [EMPTY_TOKEN_NS] * (max_length - len(sequences[key]))
-
 
         # Mask codes
         true_codes, masked_codes, output_labels = random_masking(
@@ -248,7 +246,6 @@ def process_data_CoercionRisk(
     EMPTY_TOKEN_NS=0,
     ref_date=datetime(1900, 1, 1),
     max_length=512,
-    mask_prob=0.15,
     Azure=False,
 ):
     """
@@ -277,7 +274,6 @@ def process_data_CoercionRisk(
     processed_data = {}
 
     for patient, patient_data in tqdm(data.items()):
-
         # Process birth date and events
         birth_date = datetime.strptime(patient_data[names["birth_date"]], "%Y-%m-%d")
         events = patient_data[names["events"]]
@@ -315,7 +311,6 @@ def process_data_CoercionRisk(
         coercion_label = -1
 
         for date_list, code_list, event_id in admid_groups.values():
-
             # Add date and code sequences
             date_sequence += [
                 (datetime.strptime(date[:10], "%Y-%m-%d") - ref_date).days
@@ -341,12 +336,19 @@ def process_data_CoercionRisk(
             segment = position % 2
             total_length += len(code_list) + 2
 
-        # Get coercion and psych admission events 
-        coercion = [index for index, value in enumerate(code_sequence) if value == 'coercion_2_start' or value == 'coercion_3_start']
-        psych_admission = [index for index, value in enumerate(code_sequence) if value == 'psych_admission']
+        # Get coercion and psych admission events
+        coercion = [
+            index
+            for index, value in enumerate(code_sequence)
+            if value == "coercion_2_start" or value == "coercion_3_start"
+        ]
+        psych_admission = [
+            index
+            for index, value in enumerate(code_sequence)
+            if value == "psych_admission"
+        ]
 
-
-        if len(coercion)>0:
+        if len(coercion) > 0:
             # sample a random encounter with coercion and get the first index where the coercion is present in
             if random.random() < 1:
                 coercion_label = 1
@@ -395,7 +397,6 @@ def process_data_CoercionRisk(
         segment_sequence = segment_sequence[-max_length:]
         position_sequence = position_sequence[-max_length:]
 
-
         processed_data[patient] = {
             "dates": date_sequence,
             "age": age_sequence,
@@ -403,14 +404,9 @@ def process_data_CoercionRisk(
             "position": position_sequence,
             "segment": segment_sequence,
             "classification_labels": coercion_label,
-            "sample_index": sample_index,
-            "original_code_sequence":original_code_sequence,
-            "patient": patient,
         }
 
-
     for patient, sequences in processed_data.items():
-
         # Attention masks
         sequences["attention_mask"] = [1] * len(sequences["codes"]) + [0] * (
             max_length - len(sequences["codes"])
@@ -420,13 +416,10 @@ def process_data_CoercionRisk(
         for key in sequences:
             if key == "codes":
                 sequences[key] += [PAD_TOKEN] * (max_length - len(sequences[key]))
-            elif (key != "classification_labels") & (key != "sample_index") & (key != "original_code_sequence") & (key != "patient")  :
+            elif key != "classification_labels":
                 sequences[key] += [EMPTY_TOKEN_NS] * (max_length - len(sequences[key]))
 
         # Tokenize
-        sequences["input_sequence"] = [vocab_list[code] for code in sequences['codes']]
-        
-
-
+        sequences["input_sequence"] = [vocab_list[code] for code in sequences["codes"]]
 
     return processed_data
