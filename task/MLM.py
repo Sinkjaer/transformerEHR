@@ -11,7 +11,7 @@ current_directory = os.getcwd()
 # Print the current working directory
 print(current_directory)
 
-Azure = False
+Azure = True
 
 # %%
 from common.common import create_folder
@@ -57,7 +57,7 @@ if Azure:
     file_config = {
         "vocab": "../dataloader/vocab.txt",  # vocabulary idx2token, token2idx
         "data_train": "../../EHR_data/data/pre_train_training_set.json",  # formated data
-        "data_val": "../../EHR_data/data/pre_train_validation.json",  # formated data
+        "data_val": "../../EHR_data/data/pre_train_validation_set.json",  # formated data
         "model_path": "MLM/model1",  # where to save model
         "model_name": "model",  # model name
         "file_name": "log.txt",  # log path
@@ -106,8 +106,23 @@ sample = next(iter(masked_data))
 trainload = DataLoader(
     dataset=masked_data,
     batch_size=train_params["batch_size"],
+    shuffle=True,
+    num_workers=16,
+)
+
+# Data loader for validation set
+with open(file_config["data_val"]) as f:
+    data_val_json = json.load(f)
+
+data_val = process_data_MLM(
+    data_val_json, vocab_list, word_to_idx, mask_prob=0.20, Azure=Azure
+)
+masked_data_val = MaskedDataset(data_val)
+
+valload = DataLoader(
+    dataset=masked_data_val,
+    batch_size=train_params["batch_size"],
     shuffle=False,
-    # num_workers=1,
 )
 
 model_config = {
@@ -220,22 +235,6 @@ def train(e, loader):
         tr_loss / nb_tr_examples,
         cost,
     )  # Scale the loss by number of training examples
-
-
-# Data loader for validation set
-with open(file_config["data_val"]) as f:
-    data_val_json = json.load(f)
-
-data_val = process_data_MLM(
-    data_val_json, vocab_list, word_to_idx, mask_prob=0.20, Azure=Azure
-)
-masked_data_val = MaskedDataset(data_val)
-
-valload = DataLoader(
-    dataset=masked_data_val,
-    batch_size=train_params["batch_size"],
-    shuffle=False,
-)
 
 
 def validation(loader):
