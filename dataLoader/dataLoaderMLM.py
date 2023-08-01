@@ -61,7 +61,7 @@ def process_data_MLM(
     ref_date=datetime(1900, 1, 1),
     max_length=512,
     mask_prob=0.15,
-    Azure=False,
+    Azure=True,
 ):
     """
     Function to process the data from the json file.

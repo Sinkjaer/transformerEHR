@@ -18,29 +18,35 @@ import random
 
 # %% MLM data loader
 class MaskedDataset(Dataset):
-    def __init__(self, data):
-        self.data = list(data.values())
+    def __init__(self, data, vocab_list, word_to_idx):
+        self.data = data
+        self.vocab_list = vocab_list
+        self.word_to_idx = word_to_idx
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
-        dates = torch.tensor(self.data[idx]["dates"])
-        age = torch.tensor(self.data[idx]["age"])
-        masked_codes = torch.tensor(self.data[idx]["masked_codes"])
-        position = torch.tensor(self.data[idx]["position"])
-        segment = torch.tensor(self.data[idx]["segment"])
-        attension_mask = torch.tensor(self.data[idx]["attention_mask"])
-        output_labels = torch.tensor(self.data[idx]["output_labels"])
+        patient, patient_data = list(self.data.items())[idx]
+        processed_patient_data = process_data_MLM(
+            {patient: patient_data}, self.vocab_list, self.word_to_idx
+        )
+        patient_data = processed_patient_data[patient]
+        dates = torch.tensor(patient_data["dates"])
+        age = torch.tensor(patient_data["age"])
+        masked_codes = torch.tensor(patient_data["masked_codes"])
+        position = torch.tensor(patient_data["position"])
+        segment = torch.tensor(patient_data["segment"])
+        attention_mask = torch.tensor(patient_data["attention_mask"])
+        output_labels = torch.tensor(patient_data["output_labels"])
         return (
             dates,
             age,
             masked_codes,
             position,
             segment,
-            attension_mask,
+            attention_mask,
             output_labels,
-            # patient,
         )
 
 
@@ -55,7 +61,7 @@ def process_data_MLM(
     ref_date=datetime(1900, 1, 1),
     max_length=512,
     mask_prob=0.15,
-    Azure=False,
+    Azure=True,
 ):
     """
     Function to process the data from the json file.
@@ -82,8 +88,10 @@ def process_data_MLM(
 
     processed_data = {}
     count = 0
-
-    for patient, patient_data in tqdm(data.items(), desc="Processing data"):
+    for (
+        patient,
+        patient_data,
+    ) in data.items():  # This is not as we only pass one patient
         # count += 1
         # if count == 5:
         #     break

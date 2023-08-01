@@ -31,7 +31,7 @@ import time
 import torch.nn as nn
 import os
 import json
-from tqdm import tqdm
+
 
 # %%
 class BertConfig(Bert.modeling.BertConfig):
@@ -82,7 +82,7 @@ global_params = {"max_seq_len": 512, "gradient_accumulation_steps": 1}
 optim_param = {"lr": 3e-6, "warmup_proportion": 0.1, "weight_decay": 0.01}
 
 train_params = {
-    "batch_size": 2,
+    "batch_size": 32,
     "use_cuda": file_config["use_cuda"],
     "max_len_seq": global_params["max_seq_len"],
     "device": file_config["device"],
@@ -91,37 +91,23 @@ train_params = {
 # vocab_list, word_to_idx = load_vocab(file_config["vocab"])
 
 with open(file_config["data_train"]) as f:
-    data_train_json = json.load(f)
+    data_json = json.load(f)
 
 # Build vocab
-vocab_list, word_to_idx = build_vocab(data_train_json, Azure=Azure)
+vocab_list, word_to_idx = build_vocab(data_json, Azure=Azure)
 
 # %%
 # Data loader
-masked_data_train = MaskedDataset(data_train_json, vocab_list, word_to_idx)
-sample = next(iter(masked_data_train))
-# data = process_data_MLM(data_json, vocab_list, word_to_idx, mask_prob=0.20, Azure=Azure)
-# masked_data = MaskedDataset(data)
-# sample = next(iter(masked_data))
+data = process_data_MLM(data_json, vocab_list, word_to_idx, mask_prob=0.20, Azure=Azure)
+masked_data = MaskedDataset(data)
+sample = next(iter(masked_data))
 
+# %%
 trainload = DataLoader(
-    dataset=masked_data_train,
+    dataset=masked_data,
     batch_size=train_params["batch_size"],
     shuffle=True,
-    # num_workers=2,
-)
-
-# Data loader for validation set
-with open(file_config["data_val"]) as f:
-    data_val_json = json.load(f)
-
-masked_data_val = MaskedDataset(data_val_json, vocab_list, word_to_idx)
-
-valload = DataLoader(
-    dataset=masked_data_val,
-    batch_size=train_params["batch_size"],
-    shuffle=True,
-    # num_workers=16,
+    num_workers=16,
 )
 
 # Data loader for validation set
@@ -131,15 +117,13 @@ with open(file_config["data_val"]) as f:
 data_val = process_data_MLM(
     data_val_json, vocab_list, word_to_idx, mask_prob=0.20, Azure=Azure
 )
-masked_data_val = MaskedDataset(data_val, vocab_list, word_to_idx)
+masked_data_val = MaskedDataset(data_val)
 
 valload = DataLoader(
     dataset=masked_data_val,
     batch_size=train_params["batch_size"],
     shuffle=False,
 )
-# %%
-
 
 model_config = {
     "vocab_size": len(vocab_list),  # number of disease + symbols for word embedding
@@ -186,7 +170,7 @@ def train(e, loader):
     cnt = 0
     start = time.time()
 
-    for step, batch in enumerate(tqdm(loader, desc="training")):
+    for step, batch in enumerate(loader):
         cnt += 1
         batch = tuple(t.to(train_params["device"]) for t in batch)
 
@@ -302,6 +286,5 @@ for e in range(5):
         "{}\t{}\t{}\t{}\t{}\n".format(e, loss, time_cost, val_loss, val_acc)
     )  # Log validation loss and accuracy
 f.close()
-
 
 # %%
