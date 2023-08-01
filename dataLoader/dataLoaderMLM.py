@@ -168,6 +168,18 @@ def process_data_MLM(
             segment_sequence = segment_sequence[-max_length:]
             position_sequence = position_sequence[-max_length:]
 
+            # Remove entries prior to the first '[SEP]'
+            index = code_sequence.index(SEP_TOKEN)
+            date_sequence = date_sequence[index:]
+            age_sequence = age_sequence[index:]
+            code_sequence = code_sequence[index:]
+            segment_sequence = segment_sequence[index:]
+            position_sequence = position_sequence[index:]
+
+            # Scale position_sequence to the new length
+            min_pos = position_sequence[0] + 1
+            position_sequence = [i - min_pos for i in position_sequence]
+
         processed_data[patient] = {
             "dates": date_sequence,
             "age": age_sequence,
