@@ -161,11 +161,12 @@ def process_data_MLM(
         position_sequence = position_sequence[:-1]
 
         # Ensure that sequence is not to large
-        date_sequence = date_sequence[-max_length:]
-        age_sequence = age_sequence[-max_length:]
-        code_sequence = code_sequence[-max_length:]
-        segment_sequence = segment_sequence[-max_length:]
-        position_sequence = position_sequence[-max_length:]
+        if total_length > max_length:
+            date_sequence = date_sequence[-max_length:]
+            age_sequence = age_sequence[-max_length:]
+            code_sequence = code_sequence[-max_length:]
+            segment_sequence = segment_sequence[-max_length:]
+            position_sequence = position_sequence[-max_length:]
 
         processed_data[patient] = {
             "dates": date_sequence,
@@ -399,11 +400,23 @@ def process_data_CoercionRisk(
         position_sequence = position_sequence[:-1]
 
         # Ensure that sequence is not to large, only keep the latest events
-        date_sequence = date_sequence[-max_length:]
-        age_sequence = age_sequence[-max_length:]
-        code_sequence = code_sequence[-max_length:]
-        segment_sequence = segment_sequence[-max_length:]
-        position_sequence = position_sequence[-max_length:]
+        if len(date_sequence) > max_length:
+            code_sequence = code_sequence[-max_length:]
+            date_sequence = date_sequence[-max_length:]
+            age_sequence = age_sequence[-max_length:]
+            segment_sequence = segment_sequence[-max_length:]
+            position_sequence = position_sequence[-max_length:]
+
+            # Crop to keep the first SEP_TOKEN
+            index = code_sequence.index(SEP_TOKEN)
+            code_sequence = code_sequence[index:]
+            date_sequence = date_sequence[index:]
+            age_sequence = age_sequence[index:]
+            segment_sequence = segment_sequence[index:]
+            position_sequence = position_sequence[index:]
+
+            # Rescale position sequence to start at 1
+            position_sequence = position_sequence - position_sequence[0] + 1
 
         processed_data[patient] = {
             "dates": date_sequence,
