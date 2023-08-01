@@ -32,6 +32,8 @@ import torch.nn as nn
 import os
 import json
 from tqdm import tqdm
+import torch.cuda.amp as amp
+
 
 # %%
 class BertConfig(Bert.modeling.BertConfig):
@@ -108,7 +110,8 @@ trainload = DataLoader(
     dataset=masked_data_train,
     batch_size=train_params["batch_size"],
     shuffle=True,
-    # num_workers=2,
+    pin_memory=True,
+    num_workers=2,
 )
 
 # Data loader for validation set
@@ -120,25 +123,10 @@ masked_data_val = MaskedDataset(data_val_json, vocab_list, word_to_idx)
 valload = DataLoader(
     dataset=masked_data_val,
     batch_size=train_params["batch_size"],
-    shuffle=True,
-    # num_workers=16,
-)
-
-# Data loader for validation set
-with open(file_config["data_val"]) as f:
-    data_val_json = json.load(f)
-
-data_val = process_data_MLM(
-    data_val_json, vocab_list, word_to_idx, mask_prob=0.20, Azure=Azure
-)
-masked_data_val = MaskedDataset(data_val, vocab_list, word_to_idx)
-
-valload = DataLoader(
-    dataset=masked_data_val,
-    batch_size=train_params["batch_size"],
     shuffle=False,
+    pin_memory=True,
+    num_workers=2,
 )
-# %%
 
 
 model_config = {
@@ -186,6 +174,8 @@ def train(e, loader):
     cnt = 0
     start = time.time()
 
+    scaler = amp.GradScaler()
+
     for step, batch in enumerate(tqdm(loader, desc="training")):
         cnt += 1
         batch = tuple(t.to(train_params["device"]) for t in batch)
@@ -199,18 +189,20 @@ def train(e, loader):
             attMask,
             output_labels,
         ) = batch
-        loss, pred, label = model(
-            input_ids,
-            dates_ids=dates_ids,
-            age_ids=age_ids,
-            seg_ids=segment_ids,
-            posi_ids=posi_ids,
-            attention_mask=attMask,
-            masked_lm_labels=output_labels,
-        )
+
+        with amp.autocast():
+            loss, pred, label = model(
+                input_ids,
+                dates_ids=dates_ids,
+                age_ids=age_ids,
+                seg_ids=segment_ids,
+                posi_ids=posi_ids,
+                attention_mask=attMask,
+                masked_lm_labels=output_labels,
+            )
         if global_params["gradient_accumulation_steps"] > 1:
             loss = loss / global_params["gradient_accumulation_steps"]
-        loss.backward()
+        scaler.scale(loss).backward()
 
         temp_loss += loss.item()
         tr_loss += loss.item()
@@ -232,7 +224,8 @@ def train(e, loader):
             start = time.time()
 
         if (step + 1) % global_params["gradient_accumulation_steps"] == 0:
-            optim.step()
+            scaler.step(optim)
+            scaler.update()
             optim.zero_grad()
 
     print("** ** * Saving fine - tuned model ** ** * ")
