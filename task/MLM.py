@@ -84,7 +84,7 @@ global_params = {"max_seq_len": 512, "gradient_accumulation_steps": 1}
 optim_param = {"lr": 3e-6, "warmup_proportion": 0.1, "weight_decay": 0.01}
 
 train_params = {
-    "batch_size": 2,
+    "batch_size": 64,
     "use_cuda": file_config["use_cuda"],
     "max_len_seq": global_params["max_seq_len"],
     "device": file_config["device"],
@@ -111,7 +111,7 @@ trainload = DataLoader(
     batch_size=train_params["batch_size"],
     shuffle=True,
     pin_memory=True,
-    num_workers=2,
+    num_workers=6,
 )
 
 # Data loader for validation set
@@ -125,13 +125,13 @@ valload = DataLoader(
     batch_size=train_params["batch_size"],
     shuffle=False,
     pin_memory=True,
-    num_workers=2,
+    num_workers=6,
 )
 
 
 model_config = {
     "vocab_size": len(vocab_list),  # number of disease + symbols for word embedding
-    "hidden_size": 288,  # word embedding and seg embedding hidden size
+    "hidden_size": 12,#288,  # word embedding and seg embedding hidden size
     "seg_vocab_size": 2,  # number of vocab for seg embedding
     "age_vocab_size": 144,  # number of vocab for age embedding
     "max_position_embedding": train_params["max_len_seq"],  # maximum number of tokens

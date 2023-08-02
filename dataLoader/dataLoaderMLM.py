@@ -177,7 +177,7 @@ def process_data_MLM(
             position_sequence = position_sequence[index:]
 
             # Scale position_sequence to the new length
-            min_pos = position_sequence[0] + 1
+            min_pos = position_sequence[0] - 1
             position_sequence = [i - min_pos for i in position_sequence]
 
         processed_data[patient] = {
