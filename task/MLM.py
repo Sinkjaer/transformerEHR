@@ -114,201 +114,187 @@ trainload = DataLoader(
     num_workers=6,
 )
 
-for step, batch in enumerate(tqdm(trainloader, desc="age")):
-    batch = tuple(t.to(train_params["device"]) for t in batch)
+# Data loader for validation set
+with open(file_config["data_val"]) as f:
+    data_val_json = json.load(f)
 
-    (
-        dates_ids,
-        age_ids,
-        input_ids,
-        posi_ids,
-        segment_ids,
-        attMask,
-        output_labels,
-    ) = batch
-    print(dates_ids)
+masked_data_val = MaskedDataset(data_val_json, vocab_list, word_to_idx)
 
-# # Data loader for validation set
-# with open(file_config["data_val"]) as f:
-#     data_val_json = json.load(f)
-
-# masked_data_val = MaskedDataset(data_val_json, vocab_list, word_to_idx)
-
-# valload = DataLoader(
-#     dataset=masked_data_val,
-#     batch_size=train_params["batch_size"],
-#     shuffle=False,
-#     pin_memory=True,
-#     num_workers=6,
-# )
+valload = DataLoader(
+    dataset=masked_data_val,
+    batch_size=train_params["batch_size"],
+    shuffle=False,
+    pin_memory=True,
+    num_workers=6,
+)
 
 
-# model_config = {
-#     "vocab_size": len(vocab_list),  # number of disease + symbols for word embedding
-#     "hidden_size": 12,  # 288,  # word embedding and seg embedding hidden size
-#     "seg_vocab_size": 2,  # number of vocab for seg embedding
-#     "age_vocab_size": 144,  # number of vocab for age embedding
-#     "max_position_embedding": train_params["max_len_seq"],  # maximum number of tokens
-#     "hidden_dropout_prob": 0.1,  # dropout rate
-#     "num_hidden_layers": 6,  # number of multi-head attention layers required
-#     "num_attention_heads": 12,  # number of attention heads
-#     "attention_probs_dropout_prob": 0.1,  # multi-head attention dropout rate
-#     "intermediate_size": 512,  # the size of the "intermediate" layer in the transformer encoder
-#     "hidden_act": "gelu",  # The non-linear activation function in the encoder and the pooler "gelu", 'relu', 'swish' are supported
-#     "initializer_range": 0.02,  # parameter weight initializer range
-# }
+model_config = {
+    "vocab_size": len(vocab_list),  # number of disease + symbols for word embedding
+    "hidden_size": 12,#288,  # word embedding and seg embedding hidden size
+    "seg_vocab_size": 2,  # number of vocab for seg embedding
+    "age_vocab_size": 144,  # number of vocab for age embedding
+    "max_position_embedding": train_params["max_len_seq"],  # maximum number of tokens
+    "hidden_dropout_prob": 0.1,  # dropout rate
+    "num_hidden_layers": 6,  # number of multi-head attention layers required
+    "num_attention_heads": 12,  # number of attention heads
+    "attention_probs_dropout_prob": 0.1,  # multi-head attention dropout rate
+    "intermediate_size": 512,  # the size of the "intermediate" layer in the transformer encoder
+    "hidden_act": "gelu",  # The non-linear activation function in the encoder and the pooler "gelu", 'relu', 'swish' are supported
+    "initializer_range": 0.02,  # parameter weight initializer range
+}
 
-# conf = BertConfig(model_config)
-# model = BertForMaskedLM(conf)
+conf = BertConfig(model_config)
+model = BertForMaskedLM(conf)
 
-# model = model.to(train_params["device"])
-# optim = adam(params=list(model.named_parameters()), config=optim_param)
-
-
-# def cal_acc(label, pred):
-#     label = label.cpu().numpy()
-#     ind = np.where(label != -1)[0]
-#     truepred = pred.detach().cpu().numpy()
-#     truepred = truepred[ind]
-#     truelabel = label[ind]
-#     truepred = torch.from_numpy(truepred)
-#     truepred = torch.nn.functional.log_softmax(truepred, dim=1)
-#     outs = [np.argmax(pred_x) for pred_x in truepred.numpy()]
-#     # Consider only the non-padded tokens
-#     outs = np.array(outs)[truelabel != 3]
-#     truelabel = truelabel[truelabel != 3]
-#     precision = skm.precision_score(truelabel, outs, average="micro")
-#     return precision
+model = model.to(train_params["device"])
+optim = adam(params=list(model.named_parameters()), config=optim_param)
 
 
-# def train(e, loader):
-#     tr_loss = 0
-#     temp_loss = 0
-#     nb_tr_examples, nb_tr_steps = 0, 0
-#     cnt = 0
-#     start = time.time()
-
-#     scaler = amp.GradScaler()
-
-#     for step, batch in enumerate(tqdm(loader, desc="training")):
-#         cnt += 1
-#         batch = tuple(t.to(train_params["device"]) for t in batch)
-
-#         (
-#             dates_ids,
-#             age_ids,
-#             input_ids,
-#             posi_ids,
-#             segment_ids,
-#             attMask,
-#             output_labels,
-#         ) = batch
-
-#         with amp.autocast():
-#             loss, pred, label = model(
-#                 input_ids,
-#                 dates_ids=dates_ids,
-#                 age_ids=age_ids,
-#                 seg_ids=segment_ids,
-#                 posi_ids=posi_ids,
-#                 attention_mask=attMask,
-#                 masked_lm_labels=output_labels,
-#             )
-#         if global_params["gradient_accumulation_steps"] > 1:
-#             loss = loss / global_params["gradient_accumulation_steps"]
-#         scaler.scale(loss).backward()
-
-#         temp_loss += loss.item()
-#         tr_loss += loss.item()
-
-#         nb_tr_examples += input_ids.size(0)
-#         nb_tr_steps += 1
-
-#         if step % 100 == 0:
-#             print(
-#                 "epoch: {}\t| cnt: {}\t|Loss: {}\t| precision: {:.4f}\t| time: {:.2f}".format(
-#                     e,
-#                     cnt,
-#                     temp_loss / 100,
-#                     cal_acc(label, pred),
-#                     time.time() - start,
-#                 )
-#             )
-#             temp_loss = 0
-#             start = time.time()
-
-#         if (step + 1) % global_params["gradient_accumulation_steps"] == 0:
-#             scaler.step(optim)
-#             scaler.update()
-#             optim.zero_grad()
-
-#     print("** ** * Saving fine - tuned model ** ** * ")
-#     model_to_save = (
-#         model.module if hasattr(model, "module") else model
-#     )  # Only save the model it-self
-#     create_folder(file_config["model_path"])
-#     output_model_file = os.path.join(
-#         file_config["model_path"], file_config["model_name"]
-#     )
-
-#     torch.save(model_to_save.state_dict(), output_model_file)
-
-#     cost = time.time() - start
-#     return (
-#         tr_loss / nb_tr_examples,
-#         cost,
-#     )  # Scale the loss by number of training examples
+def cal_acc(label, pred):
+    label = label.cpu().numpy()
+    ind = np.where(label != -1)[0]
+    truepred = pred.detach().cpu().numpy()
+    truepred = truepred[ind]
+    truelabel = label[ind]
+    truepred = torch.from_numpy(truepred)
+    truepred = torch.nn.functional.log_softmax(truepred, dim=1)
+    outs = [np.argmax(pred_x) for pred_x in truepred.numpy()]
+    # Consider only the non-padded tokens
+    outs = np.array(outs)[truelabel != 3]
+    truelabel = truelabel[truelabel != 3]
+    precision = skm.precision_score(truelabel, outs, average="micro")
+    return precision
 
 
-# def validation(loader):
-#     model.eval()  # Set model to evaluation mode
-#     total_acc = 0.0
-#     total_loss = 0.0
-#     total_count = 0
-#     nb_val_examples = 0
-#     with torch.no_grad():
-#         for batch in loader:
-#             batch = tuple(t.to(train_params["device"]) for t in batch)
+def train(e, loader):
+    tr_loss = 0
+    temp_loss = 0
+    nb_tr_examples, nb_tr_steps = 0, 0
+    cnt = 0
+    start = time.time()
 
-#             (
-#                 dates_ids,
-#                 age_ids,
-#                 input_ids,
-#                 posi_ids,
-#                 segment_ids,
-#                 attMask,
-#                 output_labels,
-#             ) = batch
-#             loss, pred, label = model(
-#                 input_ids,
-#                 dates_ids=dates_ids,
-#                 age_ids=age_ids,
-#                 seg_ids=segment_ids,
-#                 posi_ids=posi_ids,
-#                 attention_mask=attMask,
-#                 masked_lm_labels=output_labels,
-#             )
+    scaler = amp.GradScaler()
 
-#             total_acc += cal_acc(label, pred)
-#             total_loss += loss.item()
-#             total_count += 1
-#             nb_val_examples += input_ids.size(0)
+    for step, batch in enumerate(tqdm(loader, desc="training")):
+        cnt += 1
+        batch = tuple(t.to(train_params["device"]) for t in batch)
 
-#     model.train()  # Set model back to train mode
-#     return total_loss / nb_val_examples, total_acc / total_count
+        (
+            dates_ids,
+            age_ids,
+            input_ids,
+            posi_ids,
+            segment_ids,
+            attMask,
+            output_labels,
+        ) = batch
+
+        with amp.autocast():
+            loss, pred, label = model(
+                input_ids,
+                dates_ids=dates_ids,
+                age_ids=age_ids,
+                seg_ids=segment_ids,
+                posi_ids=posi_ids,
+                attention_mask=attMask,
+                masked_lm_labels=output_labels,
+            )
+        if global_params["gradient_accumulation_steps"] > 1:
+            loss = loss / global_params["gradient_accumulation_steps"]
+        scaler.scale(loss).backward()
+
+        temp_loss += loss.item()
+        tr_loss += loss.item()
+
+        nb_tr_examples += input_ids.size(0)
+        nb_tr_steps += 1
+
+        if step % 100 == 0:
+            print(
+                "epoch: {}\t| cnt: {}\t|Loss: {}\t| precision: {:.4f}\t| time: {:.2f}".format(
+                    e,
+                    cnt,
+                    temp_loss / 100,
+                    cal_acc(label, pred),
+                    time.time() - start,
+                )
+            )
+            temp_loss = 0
+            start = time.time()
+
+        if (step + 1) % global_params["gradient_accumulation_steps"] == 0:
+            scaler.step(optim)
+            scaler.update()
+            optim.zero_grad()
+
+    print("** ** * Saving fine - tuned model ** ** * ")
+    model_to_save = (
+        model.module if hasattr(model, "module") else model
+    )  # Only save the model it-self
+    create_folder(file_config["model_path"])
+    output_model_file = os.path.join(
+        file_config["model_path"], file_config["model_name"]
+    )
+
+    torch.save(model_to_save.state_dict(), output_model_file)
+
+    cost = time.time() - start
+    return (
+        tr_loss / nb_tr_examples,
+        cost,
+    )  # Scale the loss by number of training examples
 
 
-# f = open(os.path.join(file_config["model_path"], file_config["file_name"]), "w")
-# f.write("{}\t{}\t{}\t{}\t{}\n".format("epoch", "loss", "time", "val_loss", "val_acc"))
-# for e in range(5):
-#     loss, time_cost = train(e, trainload)
-#     loss = loss / 1  # data_len
-#     val_loss, val_acc = validation(valload)  # Calculate validation loss and accuracy
-#     print(f"Validation loss at epoch {e} is {val_loss}, accuracy is {val_acc}")
-#     f.write(
-#         "{}\t{}\t{}\t{}\t{}\n".format(e, loss, time_cost, val_loss, val_acc)
-#     )  # Log validation loss and accuracy
-# f.close()
+def validation(loader):
+    model.eval()  # Set model to evaluation mode
+    total_acc = 0.0
+    total_loss = 0.0
+    total_count = 0
+    nb_val_examples = 0
+    with torch.no_grad():
+        for batch in loader:
+            batch = tuple(t.to(train_params["device"]) for t in batch)
+
+            (
+                dates_ids,
+                age_ids,
+                input_ids,
+                posi_ids,
+                segment_ids,
+                attMask,
+                output_labels,
+            ) = batch
+            loss, pred, label = model(
+                input_ids,
+                dates_ids=dates_ids,
+                age_ids=age_ids,
+                seg_ids=segment_ids,
+                posi_ids=posi_ids,
+                attention_mask=attMask,
+                masked_lm_labels=output_labels,
+            )
+
+            total_acc += cal_acc(label, pred)
+            total_loss += loss.item()
+            total_count += 1
+            nb_val_examples += input_ids.size(0)
+
+    model.train()  # Set model back to train mode
+    return total_loss / nb_val_examples, total_acc / total_count
+
+
+f = open(os.path.join(file_config["model_path"], file_config["file_name"]), "w")
+f.write("{}\t{}\t{}\t{}\t{}\n".format("epoch", "loss", "time", "val_loss", "val_acc"))
+for e in range(5):
+    loss, time_cost = train(e, trainload)
+    loss = loss / 1  # data_len
+    val_loss, val_acc = validation(valload)  # Calculate validation loss and accuracy
+    print(f"Validation loss at epoch {e} is {val_loss}, accuracy is {val_acc}")
+    f.write(
+        "{}\t{}\t{}\t{}\t{}\n".format(e, loss, time_cost, val_loss, val_acc)
+    )  # Log validation loss and accuracy
+f.close()
 
 
 # %%
