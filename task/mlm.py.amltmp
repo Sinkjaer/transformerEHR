@@ -109,10 +109,29 @@ sample = next(iter(masked_data_train))
 trainload = DataLoader(
     dataset=masked_data_train,
     batch_size=train_params["batch_size"],
-    shuffle=True,
+    shuffle=False,
     pin_memory=True,
     num_workers=6,
 )
+
+###
+for step, batch in enumerate(tqdm(trainload, desc="age")):
+    batch = tuple(t.to(train_params["device"]) for t in batch)
+
+    (
+        dates_ids,
+        age_ids,
+        input_ids,
+        posi_ids,
+        segment_ids,
+        attMask,
+        output_labels,
+    ) = batch
+    if torch.max(age_ids)>130:
+        print(torch.max(age_ids))
+    if torch.min(age_ids)<0:
+        print(torch.min(age_ids))
+###
 
 # Data loader for validation set
 with open(file_config["data_val"]) as f:

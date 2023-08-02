@@ -130,11 +130,11 @@ def process_data_MLM(
 
         for date_list, code_list in admid_groups.values():
             # Add date and code sequences
-            date_sequence += [
+            date_sequence.extend( [
                 (datetime.strptime(date[:10], "%Y-%m-%d") - ref_date).days
                 for date in date_list
-            ]
-            age_sequence += [
+            ])
+            age_sequence.extend( [
                 relativedelta(
                     datetime.strptime(date[:10], "%Y-%m-%d"), birth_date
                 ).years
@@ -143,10 +143,10 @@ def process_data_MLM(
                 ).months
                 / 12
                 for date in date_list
-            ]
-            code_sequence += code_list + [SEP_TOKEN]
-            position_sequence += [position] * (len(code_list) + 1)
-            segment_sequence += [segment] * (len(code_list) + 1)
+            ])
+            code_sequence.extend(code_list + [SEP_TOKEN])
+            position_sequence.extend([position] * (len(code_list) + 1))
+            segment_sequence.extend([segment] * (len(code_list) + 1))
 
             # Update position, segment, and total length
             position += 1
