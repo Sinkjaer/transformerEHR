@@ -130,20 +130,21 @@ def process_data_MLM(
 
         for date_list, code_list in admid_groups.values():
             # Add date and code sequences
-            date_sequence.extend( [
-                (datetime.strptime(date[:10], "%Y-%m-%d") - ref_date).days
-                for date in date_list
-            ])
-            age_sequence.extend( [
-                relativedelta(
-                    datetime.strptime(date[:10], "%Y-%m-%d"), birth_date
-                ).years
-                + relativedelta(
-                    datetime.strptime(date[:10], "%Y-%m-%d"), birth_date
-                ).months
-                / 12
-                for date in date_list
-            ])
+            date_list = [datetime.strptime(date[:10], "%Y-%m-%d") for date in date_list]
+
+            date_sequence.extend([(date - ref_date).days for date in date_list])
+            # patient can for som reason be younger than 0
+            age_sequence.extend(
+                [
+                    max(
+                        0,
+                        relativedelta(date, birth_date).years
+                        + relativedelta(date, birth_date).months / 12,
+                    )
+                    for date in date_list
+                ]
+            )
+
             code_sequence.extend(code_list + [SEP_TOKEN])
             position_sequence.extend([position] * (len(code_list) + 1))
             segment_sequence.extend([segment] * (len(code_list) + 1))

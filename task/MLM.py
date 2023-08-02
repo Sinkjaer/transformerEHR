@@ -114,25 +114,6 @@ trainload = DataLoader(
     num_workers=6,
 )
 
-###
-for step, batch in enumerate(tqdm(trainload, desc="age")):
-    batch = tuple(t.to(train_params["device"]) for t in batch)
-
-    (
-        dates_ids,
-        age_ids,
-        input_ids,
-        posi_ids,
-        segment_ids,
-        attMask,
-        output_labels,
-    ) = batch
-    if torch.max(age_ids)>130:
-        print(torch.max(age_ids))
-    if torch.min(age_ids)<0:
-        print(torch.min(age_ids))
-###
-
 # Data loader for validation set
 with open(file_config["data_val"]) as f:
     data_val_json = json.load(f)
@@ -150,7 +131,7 @@ valload = DataLoader(
 
 model_config = {
     "vocab_size": len(vocab_list),  # number of disease + symbols for word embedding
-    "hidden_size": 12,#288,  # word embedding and seg embedding hidden size
+    "hidden_size": 288,  # word embedding and seg embedding hidden size
     "seg_vocab_size": 2,  # number of vocab for seg embedding
     "age_vocab_size": 144,  # number of vocab for age embedding
     "max_position_embedding": train_params["max_len_seq"],  # maximum number of tokens
