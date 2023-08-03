@@ -185,10 +185,10 @@ class BertForMaskedLM(Bert.modeling.BertPreTrainedModel):
 
 
 class BertForMultiLabelPrediction(Bert.modeling.BertPreTrainedModel):
-    def __init__(self, config, num_labels, feature_dict):
+    def __init__(self, config, num_labels):
         super(BertForMultiLabelPrediction, self).__init__(config)
         self.num_labels = num_labels
-        self.bert = BertModel(config, feature_dict)
+        self.bert = BertModel(config)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.classifier = nn.Linear(config.hidden_size, num_labels)
         self.apply(self.init_bert_weights)
@@ -196,6 +196,7 @@ class BertForMultiLabelPrediction(Bert.modeling.BertPreTrainedModel):
     def forward(
         self,
         input_ids,
+        dates_ids = None,
         age_ids=None,
         seg_ids=None,
         posi_ids=None,
@@ -204,6 +205,7 @@ class BertForMultiLabelPrediction(Bert.modeling.BertPreTrainedModel):
     ):
         _, pooled_output = self.bert(
             input_ids,
+            dates_ids,
             age_ids,
             seg_ids,
             posi_ids,

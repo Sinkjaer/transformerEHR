@@ -11,7 +11,7 @@ current_directory = os.getcwd()
 # Print the current working directory
 print(current_directory)
 
-Azure = True
+Azure = False
 
 # %%
 from common.common import create_folder
@@ -60,11 +60,10 @@ if Azure:
     file_config = {
         "vocab": "../dataloader/vocab.txt",  # vocabulary idx2token, token2idx
         "data_train": "../../EHR_data/data/fine_tune_training_set.json",  # formated data
-        "data_val": "../../EHR_data/data/fine_tune_validation_set.json",  # formated data
-        "model_path": "MLM/model1/",  # where to save model
-        "prediction_model_name": "pred_model1", # Name of the prediction model 
+        "data_val": "../../EHR_data/data/fine_tune_validation.json",  # formated data
+        "model_path": "MLM/model1",  # where to save model
         "model_name": "model",  # model name
-        "file_name": "log_pred.txt",  # log path
+        "file_name": "log.txt",  # log path
         "use_cuda": True,
         "device": "cuda:0",
     }
@@ -74,9 +73,8 @@ else:
         "data_train": "/Users/mikkelsinkjaer/Library/Mobile Documents/com~apple~CloudDocs/transEHR/Code/transformerEHR/data/syntheticData_train.json",
         "data_val": "/Users/mikkelsinkjaer/Library/Mobile Documents/com~apple~CloudDocs/transEHR/Code/transformerEHR/data/syntheticData_val.json",
         "model_path": "MLM/model1/",  # where to save model
-        "prediction_model_name": "pred_model1", # Name of the prediction model 
         "model_name": "model",  # model name
-        "file_name": "log_pred.txt",  # log path
+        "file_name": "log.txt",  # log path
         "use_cuda": False,
         "device": "cpu",
     }
@@ -95,8 +93,6 @@ train_params = {
 
 # Load vocab
 vocab_list, word_to_idx = load_vocab(file_path=file_config["vocab"])
-
-print('size of vocab: ',len(vocab_list))
 
 # %%
 # TODO - use new dataloader
@@ -142,15 +138,9 @@ model_config = {
     "hidden_act": "gelu",  # The non-linear activation function in the encoder and the pooler "gelu", 'relu', 'swish' are supported
     "initializer_range": 0.02,  # parameter weight initializer range
 }
-feature_dict = {
-    'word':True,
-    'seg':True,
-    'age':True,
-    'position': True
-}
 
 conf = BertConfig(model_config)
-model = BertForMultiLabelPrediction(config=conf, num_labels=2)
+model = BertForMultiLabelPrediction(conf)
 
 
 def load_model(path, model):
@@ -267,7 +257,7 @@ def train(e, loader):
     )  # Only save the model it-self
     create_folder(file_config["model_path"])
     output_model_file = os.path.join(
-        file_config["model_path"], file_config["prediction_model_name"]
+        file_config["model_path"], file_config["model_name"]
     )
 
     torch.save(model_to_save.state_dict(), output_model_file)

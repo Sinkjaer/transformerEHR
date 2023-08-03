@@ -302,7 +302,7 @@ def process_data_CoercionRisk(
     EMPTY_TOKEN_NS=0,
     ref_date=datetime(1900, 1, 1),
     max_length=512,
-    Azure=False,
+    Azure=True,
 ):
     """
     Function to process the data from the json file.
