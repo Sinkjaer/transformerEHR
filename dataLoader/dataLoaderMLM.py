@@ -134,14 +134,7 @@ def process_data_MLM(
             date_sequence.extend([(date - ref_date).days for date in date_list])
             # patient can for som reason be younger than 0
             age_sequence.extend(
-                [
-                    max(
-                        0,
-                        relativedelta(date, birth_date).years
-                        + relativedelta(date, birth_date).months / 12,
-                    )
-                    for date in date_list
-                ]
+                [max(0, relativedelta(date, birth_date).years) for date in date_list]
             )
 
             code_sequence.extend(code_list + [SEP_TOKEN])
@@ -277,7 +270,7 @@ class CoercionRiskDataset(Dataset):
 
     def __getitem__(self, idx):
         patient, patient_data = list(self.data.items())[idx]
-        processed_patient_data = process_data_MLM(
+        processed_patient_data = process_data_CoercionRisk(
             {patient: patient_data}, self.vocab_list, self.word_to_idx
         )
         patient_data = processed_patient_data[patient]
@@ -376,12 +369,10 @@ def process_data_CoercionRisk(
         for date_list, code_list, event_id in admid_groups.values():
             # Add date and code sequences
             date_list = [datetime.strptime(date[:10], "%Y-%m-%d") for date in date_list]
-            date_sequence += [(date - ref_date).days for date in date_list]
-            age_sequence += [
-                relativedelta(date, birth_date).years
-                + relativedelta(date, birth_date).months / 12
-                for date in date_list
-            ]
+            date_sequence.extend([(date - ref_date).days for date in date_list])
+            age_sequence.extend(
+                [max(0, relativedelta(date, birth_date).years) for date in date_list]
+            )
 
             code_sequence.extend(code_list + [SEP_TOKEN])
             position_sequence.extend([position] * (len(code_list) + 1))
