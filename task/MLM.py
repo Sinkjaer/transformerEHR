@@ -171,13 +171,11 @@ def train(e, loader):
     tr_loss = 0
     temp_loss = 0
     nb_tr_examples, nb_tr_steps = 0, 0
-    cnt = 0
     start = time.time()
 
     scaler = amp.GradScaler()
 
     for step, batch in enumerate(tqdm(loader, desc="training")):
-        cnt += 1
         batch = tuple(t.to(train_params["device"]) for t in batch)
 
         (
@@ -214,7 +212,7 @@ def train(e, loader):
             print(
                 "epoch: {}\t| cnt: {}\t|Loss: {}\t| precision: {:.4f}\t| time: {:.2f}".format(
                     e,
-                    cnt,
+                    step+1,
                     temp_loss / 100,
                     cal_acc(label, pred),
                     time.time() - start,
@@ -253,7 +251,7 @@ def validation(loader):
     total_count = 0
     nb_val_examples = 0
     with torch.no_grad():
-        for batch in loader:
+        for batch in tqdm(loader,desc='Validation'):
             batch = tuple(t.to(train_params["device"]) for t in batch)
 
             (
@@ -280,13 +278,14 @@ def validation(loader):
             total_count += 1
             nb_val_examples += input_ids.size(0)
 
+
     model.train()  # Set model back to train mode
     return total_loss / nb_val_examples, total_acc / total_count
 
 
 f = open(os.path.join(file_config["model_path"], file_config["file_name"]), "w")
 f.write("{}\t{}\t{}\t{}\t{}\n".format("epoch", "loss", "time", "val_loss", "val_acc"))
-for e in range(5):
+for e in range(1):
     loss, time_cost = train(e, trainload)
     loss = loss / 1  # data_len
     val_loss, val_acc = validation(valload)  # Calculate validation loss and accuracy

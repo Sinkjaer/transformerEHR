@@ -1,0 +1,15 @@
+/mnt/batch/tasks/shared/LS_root/mounts/clusters/mikkelnc6s/code/Users/mikkel.sinkjaer/transformerEHR/task
+epoch: 0	| cnt: 1	|Loss: 0.04090639114379883	| precision: 0.0183	| time: 40.47
+epoch: 0	| cnt: 101	|Loss: 2.12503115773201	| precision: 0.2156	| time: 456.68
+epoch: 0	| cnt: 201	|Loss: 1.389355741739273	| precision: 0.2578	| time: 493.34
+epoch: 0	| cnt: 301	|Loss: 1.2676783335208892	| precision: 0.2707	| time: 492.97
+epoch: 0	| cnt: 401	|Loss: 1.201117297410965	| precision: 0.2538	| time: 477.62
+epoch: 0	| cnt: 501	|Loss: 1.1786865508556366	| precision: 0.2844	| time: 496.79
+epoch: 0	| cnt: 601	|Loss: 1.1678357475996017	| precision: 0.2991	| time: 491.59
+epoch: 0	| cnt: 701	|Loss: 1.1431299924850464	| precision: 0.2802	| time: 485.10
+epoch: 0	| cnt: 801	|Loss: 1.138008805513382	| precision: 0.2994	| time: 503.52
+epoch: 0	| cnt: 901	|Loss: 1.116649228334427	| precision: 0.2812	| time: 489.25
+epoch: 0	| cnt: 1001	|Loss: 1.099645005464554	| precision: 0.2825	| time: 486.13
+epoch: 0	| cnt: 1101	|Loss: 1.0869055354595185	| precision: 0.2818	| time: 506.00
+** ** * Saving fine - tuned model ** ** * 
+Validation loss at epoch 0 is 0.017647178591053414, accuracy is 0.27675941871329485
