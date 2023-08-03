@@ -11,7 +11,7 @@ current_directory = os.getcwd()
 # Print the current working directory
 print(current_directory)
 
-Azure = True
+Azure = False
 
 # %%
 from common.common import create_folder
@@ -115,8 +115,9 @@ trainload = DataLoader(
     batch_size=train_params["batch_size"],
     shuffle=False,
     pin_memory=True,
-    num_workers=6,
+    # num_workers=6,
 )
+sample_batch = next(iter(trainload))
 
 # Data loader for validation set
 with open(file_config["data_val"]) as f:
@@ -129,7 +130,7 @@ valload = DataLoader(
     batch_size=train_params["batch_size"],
     shuffle=False,
     pin_memory=True,
-    num_workers=6,
+    # num_workers=6,
 )
 
 
