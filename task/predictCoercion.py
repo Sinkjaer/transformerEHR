@@ -19,10 +19,10 @@ from common.pytorch import load_model
 from dataLoader.build_vocab import load_vocab, build_vocab
 import pytorch_pretrained_bert as Bert
 from common.common import load_obj
-from dataLoader.dataLoaderMLM import MaskedDataset, process_data_MLM
+from dataLoader.dataLoaderMLM import CoercionRiskDataset, process_data_CoercionRisk
 from torch.utils.data import DataLoader
 import pandas as pd
-from model.transModel import BertForMaskedLM
+from model.transModel import BertForMultiLabelPrediction
 from model.optimiser import adam
 import sklearn.metrics as skm
 import numpy as np
@@ -33,6 +33,7 @@ import os
 import json
 import sklearn
 from sklearn.preprocessing import MultiLabelBinarizer
+import torch.cuda.amp as amp
 
 
 # %%
@@ -58,8 +59,8 @@ class BertConfig(Bert.modeling.BertConfig):
 if Azure:
     file_config = {
         "vocab": "../dataloader/vocab.txt",  # vocabulary idx2token, token2idx
-        "data_train": "../../EHR_data/data/pre_train_training_set.json",  # formated data
-        "data_val": "../../EHR_data/data/pre_train_validation.json",  # formated data
+        "data_train": "../../EHR_data/data/fine_tune_training_set.json",  # formated data
+        "data_val": "../../EHR_data/data/fine_tune_validation.json",  # formated data
         "model_path": "MLM/model1",  # where to save model
         "model_name": "model",  # model name
         "file_name": "log.txt",  # log path
@@ -90,26 +91,37 @@ train_params = {
     "device": file_config["device"],
 }
 
-# vocab_list, word_to_idx = load_vocab(file_config["vocab"])
-
-with open(file_config["data_train"]) as f:
-    data_json = json.load(f)
-
-# Build vocab
-vocab_list, word_to_idx = build_vocab(data_json, Azure=Azure)
+# Load vocab
+vocab_list, word_to_idx = load_vocab(file_path=file_config["vocab"])
 
 # %%
+# TODO - use new dataloader
 # Data loader
-data = process_data_MLM(data_json, vocab_list, word_to_idx, mask_prob=0.20, Azure=Azure)
-masked_data = MaskedDataset(data)
-sample = next(iter(masked_data))
-
+with open(file_config["data_train"]) as f:
+    data_train_json = json.load(f)
+data_train = CoercionRiskDataset(data_train_json, vocab_list, word_to_idx)
+sample = next(iter(data_train))
 # %%
 trainload = DataLoader(
-    dataset=masked_data,
+    dataset=data_train,
     batch_size=train_params["batch_size"],
     shuffle=False,
-    # num_workers=1,
+    pin_memory=True,
+    num_workers=6,
+)
+
+# Data loader for validation set
+with open(file_config["data_val"]) as f:
+    data_val_json = json.load(f)
+
+data_val = CoercionRiskDataset(data_val_json, vocab_list, word_to_idx)
+
+valload = DataLoader(
+    dataset=data_val,
+    batch_size=train_params["batch_size"],
+    shuffle=False,
+    pin_memory=True,
+    num_workers=6,
 )
 
 model_config = {
@@ -128,7 +140,7 @@ model_config = {
 }
 
 conf = BertConfig(model_config)
-model = BertForMaskedLM(conf)
+model = BertForMultiLabelPrediction(conf)
 
 
 def load_model(path, model):
@@ -180,113 +192,129 @@ def precision_test(logits, label):
     )
 
 
-def train(e):
-    model.train()
+def train(e, loader):
     tr_loss = 0
     temp_loss = 0
     nb_tr_examples, nb_tr_steps = 0, 0
-    cnt = 0
-    for step, batch in enumerate(trainload):
-        cnt += 1
-        age_ids, input_ids, posi_ids, segment_ids, attMask, targets, _ = batch
+    start = time.time()
 
-        dates_ids, age_ids, input_ids, posi_ids, segment_ids, attMask, targets = batch
+    scaler = amp.GradScaler()
 
-        # dates_ids = dates_ids.to(global_params['device'])
-        input_ids = input_ids.to(global_params["device"])
-        posi_ids = posi_ids.to(global_params["device"])
-        segment_ids = segment_ids.to(global_params["device"])
-        attMask = attMask.to(global_params["device"])
-        targets = targets.to(global_params["device"])
+    for step, batch in enumerate(tqdm(loader, desc="training")):
+        batch = tuple(t.to(train_params["device"]) for t in batch)
 
-        loss, logits = model(
-            input_ids,
+        (
+            dates_ids,
             age_ids,
-            segment_ids,
+            input_ids,
             posi_ids,
-            attention_mask=attMask,
-            labels=targets,
-        )
+            segment_ids,
+            attMask,
+            output_labels,
+        ) = batch
 
+        with amp.autocast():
+            loss, logits = model(  # TODO use prediction model
+                input_ids,
+                dates_ids=dates_ids,
+                age_ids=age_ids,
+                seg_ids=segment_ids,
+                posi_ids=posi_ids,
+                attention_mask=attMask,
+                labels=output_labels,
+            )
         if global_params["gradient_accumulation_steps"] > 1:
             loss = loss / global_params["gradient_accumulation_steps"]
-        loss.backward()
+        scaler.scale(loss).backward()
 
         temp_loss += loss.item()
         tr_loss += loss.item()
+
         nb_tr_examples += input_ids.size(0)
         nb_tr_steps += 1
 
-        if step % 500 == 0:
-            prec, a, b = precision(logits, targets)
+        if step % 100 == 0:
             print(
-                "epoch: {}\t| Cnt: {}\t| Loss: {}\t| precision: {}".format(
-                    e, cnt, temp_loss / 500, prec
+                "epoch: {}\t| cnt: {}\t|Loss: {}\t| precision: {:.4f}\t| time: {:.2f}".format(
+                    e,
+                    step + 1,
+                    temp_loss / 100,
+                    precision(logits, output_labels),
+                    time.time() - start,
                 )
             )
             temp_loss = 0
+            start = time.time()
 
         if (step + 1) % global_params["gradient_accumulation_steps"] == 0:
-            optim.step()
+            scaler.step(optim)
+            scaler.update()
             optim.zero_grad()
 
+    print("** ** * Saving fine - tuned model ** ** * ")
+    model_to_save = (
+        model.module if hasattr(model, "module") else model
+    )  # Only save the model it-self
+    create_folder(file_config["model_path"])
+    output_model_file = os.path.join(
+        file_config["model_path"], file_config["model_name"]
+    )
 
-def evaluation():
-    model.eval()
-    y = []
-    y_label = []
-    tr_loss = 0
-    for step, batch in enumerate(testload):
-        model.eval()
-        dates_ids, age_ids, input_ids, posi_ids, segment_ids, attMask, targets = batch
+    torch.save(model_to_save.state_dict(), output_model_file)
 
-        # dates_ids = dates_ids.to(global_params['device'])
-        age_ids = age_ids.to(global_params["device"])
-        input_ids = input_ids.to(global_params["device"])
-        posi_ids = posi_ids.to(global_params["device"])
-        segment_ids = segment_ids.to(global_params["device"])
-        attMask = attMask.to(global_params["device"])
-        targets = targets.to(global_params["device"])
+    cost = time.time() - start
+    return (
+        tr_loss / nb_tr_examples,
+        cost,
+    )  # Scale the loss by number of training examples
 
-        with torch.no_grad():
+
+def validation(loader):
+    model.eval()  # Set model to evaluation mode
+    total_acc = 0.0
+    total_loss = 0.0
+    total_count = 0
+    nb_val_examples = 0
+    with torch.no_grad():
+        for batch in tqdm(loader, desc="Validation"):
+            batch = tuple(t.to(train_params["device"]) for t in batch)
+
+            (
+                dates_ids,
+                age_ids,
+                input_ids,
+                posi_ids,
+                segment_ids,
+                attMask,
+                output_labels,
+            ) = batch
             loss, logits = model(
                 input_ids,
-                age_ids,
-                segment_ids,
-                posi_ids,
+                dates_ids=dates_ids,
+                age_ids=age_ids,
+                seg_ids=segment_ids,
+                posi_ids=posi_ids,
                 attention_mask=attMask,
-                labels=targets,
+                labels=output_labels,
             )
-        logits = logits.cpu()
-        targets = targets.cpu()
 
-        tr_loss += loss.item()
+            total_acc += precision_test(logits, output_labels)
+            total_loss += loss.item()
+            total_count += 1
+            nb_val_examples += input_ids.size(0)
 
-        y_label.append(targets)
-        y.append(logits)
-
-    y_label = torch.cat(y_label, dim=0)
-    y = torch.cat(y, dim=0)
-
-    aps, roc, output, label = precision_test(y, y_label)
-    return aps, roc, tr_loss
+    model.train()  # Set model back to train mode
+    return total_loss / nb_val_examples, total_acc / total_count
 
 
-best_pre = 0.0
-for e in range(50):
-    train(e)
-    aps, roc, test_loss = evaluation()
-    if aps > best_pre:
-        # Save a trained model
-        print("** ** * Saving fine - tuned model ** ** * ")
-        model_to_save = (
-            model.module if hasattr(model, "module") else model
-        )  # Only save the model it-self
-        output_model_file = os.path.join(
-            global_params["output_dir"], global_params["best_name"]
-        )
-        create_folder(global_params["output_dir"])
-
-        torch.save(model_to_save.state_dict(), output_model_file)
-        best_pre = aps
-    print("aps : {}".format(aps))
+f = open(os.path.join(file_config["model_path"], file_config["file_name"]), "w")
+f.write("{}\t{}\t{}\t{}\t{}\n".format("epoch", "loss", "time", "val_loss", "val_acc"))
+for e in range(1):
+    loss, time_cost = train(e, trainload)
+    loss = loss / 1  # data_len
+    val_loss, val_acc = validation(valload)  # Calculate validation loss and accuracy
+    print(f"Validation loss at epoch {e} is {val_loss}, accuracy is {val_acc}")
+    f.write(
+        "{}\t{}\t{}\t{}\t{}\n".format(e, loss, time_cost, val_loss, val_acc)
+    )  # Log validation loss and accuracy
+f.close()

@@ -131,7 +131,6 @@ def process_data_MLM(
         for date_list, code_list in admid_groups.values():
             # Add date and code sequences
             date_list = [datetime.strptime(date[:10], "%Y-%m-%d") for date in date_list]
-
             date_sequence.extend([(date - ref_date).days for date in date_list])
             # patient can for som reason be younger than 0
             age_sequence.extend(
@@ -231,29 +230,71 @@ def process_data_MLM(
 # sample = next(iter(data_loader))
 
 
-# %% Coercion risk data loader
-class CoercionRiskDataset(Dataset):
-    def __init__(self, data):
-        self.data = list(data.values())
+###
+class MaskedDataset(Dataset):
+    def __init__(self, data, vocab_list, word_to_idx):
+        self.data = data
+        self.vocab_list = vocab_list
+        self.word_to_idx = word_to_idx
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
-        dates = torch.tensor(self.data[idx]["dates"])
-        age = torch.tensor(self.data[idx]["age"])
-        input_sequence = torch.tensor(self.data[idx]["input_sequence"])
-        position = torch.tensor(self.data[idx]["position"])
-        segment = torch.tensor(self.data[idx]["segment"])
-        attension_mask = torch.tensor(self.data[idx]["attention_mask"])
-        classification_labels = torch.tensor(self.data[idx]["classification_labels"])
+        patient, patient_data = list(self.data.items())[idx]
+        processed_patient_data = process_data_MLM(
+            {patient: patient_data}, self.vocab_list, self.word_to_idx
+        )
+        patient_data = processed_patient_data[patient]
+        dates = torch.tensor(patient_data["dates"])
+        age = torch.tensor(patient_data["age"])
+        masked_codes = torch.tensor(patient_data["masked_codes"])
+        position = torch.tensor(patient_data["position"])
+        segment = torch.tensor(patient_data["segment"])
+        attention_mask = torch.tensor(patient_data["attention_mask"])
+        output_labels = torch.tensor(patient_data["output_labels"])
+        return (
+            dates,
+            age,
+            masked_codes,
+            position,
+            segment,
+            attention_mask,
+            output_labels,
+        )
+
+
+###
+# %% Coercion risk data loader
+class CoercionRiskDataset(Dataset):
+    def __init__(self, data, vocab_list, word_to_idx):
+        self.data = data
+        self.vocab_list = vocab_list
+        self.word_to_idx = word_to_idx
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        patient, patient_data = list(self.data.items())[idx]
+        processed_patient_data = process_data_MLM(
+            {patient: patient_data}, self.vocab_list, self.word_to_idx
+        )
+        patient_data = processed_patient_data[patient]
+        dates = torch.tensor(patient_data["dates"])
+        age = torch.tensor(patient_data["age"])
+        input_sequence = torch.tensor(patient_data["input_sequence"])
+        position = torch.tensor(patient_data["position"])
+        segment = torch.tensor(patient_data["segment"])
+        attention_mask = torch.tensor(patient_data["attention_mask"])
+        classification_labels = torch.tensor(patient_data["classification_labels"])
         return (
             dates,
             age,
             input_sequence,
             position,
             segment,
-            attension_mask,
+            attention_mask,
             classification_labels,
         )
 
@@ -334,24 +375,18 @@ def process_data_CoercionRisk(
 
         for date_list, code_list, event_id in admid_groups.values():
             # Add date and code sequences
-            date_sequence += [
-                (datetime.strptime(date[:10], "%Y-%m-%d") - ref_date).days
-                for date in date_list
-            ]
+            date_list = [datetime.strptime(date[:10], "%Y-%m-%d") for date in date_list]
+            date_sequence += [(date - ref_date).days for date in date_list]
             age_sequence += [
-                relativedelta(
-                    datetime.strptime(date[:10], "%Y-%m-%d"), birth_date
-                ).years
-                + relativedelta(
-                    datetime.strptime(date[:10], "%Y-%m-%d"), birth_date
-                ).months
-                / 12
+                relativedelta(date, birth_date).years
+                + relativedelta(date, birth_date).months / 12
                 for date in date_list
             ]
-            code_sequence += code_list + [SEP_TOKEN]
-            position_sequence += [position] * (len(code_list) + 1)
-            segment_sequence += [segment] * (len(code_list) + 1)
-            event_id_sequence += [event_id] * (len(code_list) + 1)
+
+            code_sequence.extend(code_list + [SEP_TOKEN])
+            position_sequence.extend([position] * (len(code_list) + 1))
+            segment_sequence.extend([segment] * (len(code_list) + 1))
+            event_id_sequence.extend([event_id] * (len(code_list) + 1))
 
             # Update position, segment, and total length
             position += 1
@@ -412,24 +447,25 @@ def process_data_CoercionRisk(
         segment_sequence = segment_sequence[:-1]
         position_sequence = position_sequence[:-1]
 
-        # Ensure that sequence is not to large, only keep the latest events
-        if len(date_sequence) > max_length:
-            code_sequence = code_sequence[-max_length:]
+        # Ensure that sequence is not to large
+        if total_length > max_length:
             date_sequence = date_sequence[-max_length:]
             age_sequence = age_sequence[-max_length:]
+            code_sequence = code_sequence[-max_length:]
             segment_sequence = segment_sequence[-max_length:]
             position_sequence = position_sequence[-max_length:]
 
-            # Crop to keep the first SEP_TOKEN
+            # Remove entries prior to the first '[SEP]'
             index = code_sequence.index(SEP_TOKEN)
-            code_sequence = code_sequence[index:]
             date_sequence = date_sequence[index:]
             age_sequence = age_sequence[index:]
+            code_sequence = code_sequence[index:]
             segment_sequence = segment_sequence[index:]
             position_sequence = position_sequence[index:]
 
-            # Rescale position sequence to start at 1
-            position_sequence = position_sequence - position_sequence[0] + 1
+            # Scale position_sequence to the new length
+            min_pos = position_sequence[0] - 1
+            position_sequence = [i - min_pos for i in position_sequence]
 
         processed_data[patient] = {
             "dates": date_sequence,
