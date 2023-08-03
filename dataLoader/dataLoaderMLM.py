@@ -31,7 +31,7 @@ class MaskedDataset(Dataset):
         processed_patient_data = process_data_MLM(
             patient_data, patient, self.vocab_list, self.word_to_idx
         )
-        processed_patient_data
+
         dates = torch.tensor(processed_patient_data["dates"])
         age = torch.tensor(processed_patient_data["age"])
         masked_codes = torch.tensor(processed_patient_data["masked_codes"])
@@ -62,7 +62,7 @@ def process_data_MLM(
     ref_date=datetime(1900, 1, 1),
     max_length=512,
     mask_prob=0.15,
-    Azure=False,
+    Azure=True,
 ):
     """
     Function to process the data from the json file.
