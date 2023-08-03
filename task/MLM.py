@@ -212,12 +212,12 @@ def train(e, loader):
         nb_tr_examples += input_ids.size(0)
         nb_tr_steps += 1
 
-        if step % 100 == 0:
+        if step % 10 == 0:
             print(
                 "epoch: {}\t| cnt: {}\t|Loss: {}\t| precision: {:.4f}\t| time: {:.2f}".format(
                     e,
                     step + 1,
-                    temp_loss / 100,
+                    temp_loss / 10,
                     cal_acc(label, pred),
                     time.time() - start,
                 )
@@ -230,6 +230,10 @@ def train(e, loader):
             scaler.update()
             optim.zero_grad()
 
+        ###
+        if step == 100:
+            break
+        ###
     print("** ** * Saving fine - tuned model ** ** * ")
     model_to_save = (
         model.module if hasattr(model, "module") else model
