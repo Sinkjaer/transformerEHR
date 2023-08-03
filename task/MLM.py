@@ -63,6 +63,7 @@ if Azure:
         "model_path": "MLM/model1",  # where to save model
         "model_name": "model",  # model name
         "file_name": "log.txt",  # log path
+        "vocab": "vocab.txt",
         "use_cuda": True,
         "device": "cuda:0",
     }
@@ -96,8 +97,11 @@ with open(file_config["data_train"]) as f:
     data_train_json = json.load(f)
 
 # Build vocab
-vocab_list, word_to_idx = build_vocab(data_train_json, Azure=Azure)
-
+if Azure:
+    vocab_path = os.path.join(file_config["model_path"], file_config["vocab"])
+    vocab_list, word_to_idx = build_vocab(data_train_json, Azure=Azure)
+else:
+    vocab_list, word_to_idx = load_vocab(file_config["vocab"])
 # %%
 # Data loader
 masked_data_train = MaskedDataset(data_train_json, vocab_list, word_to_idx)
@@ -212,7 +216,7 @@ def train(e, loader):
             print(
                 "epoch: {}\t| cnt: {}\t|Loss: {}\t| precision: {:.4f}\t| time: {:.2f}".format(
                     e,
-                    step+1,
+                    step + 1,
                     temp_loss / 100,
                     cal_acc(label, pred),
                     time.time() - start,
@@ -251,7 +255,7 @@ def validation(loader):
     total_count = 0
     nb_val_examples = 0
     with torch.no_grad():
-        for batch in tqdm(loader,desc='Validation'):
+        for batch in tqdm(loader, desc="Validation"):
             batch = tuple(t.to(train_params["device"]) for t in batch)
 
             (
@@ -277,7 +281,6 @@ def validation(loader):
             total_loss += loss.item()
             total_count += 1
             nb_val_examples += input_ids.size(0)
-
 
     model.train()  # Set model back to train mode
     return total_loss / nb_val_examples, total_acc / total_count

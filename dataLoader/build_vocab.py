@@ -17,10 +17,10 @@ def build_vocab(
     data,
     special_tokens=("<UNK>", "<CLS>", "<SEP>", "<PAD>", "<MASK>"),
     save_file=None,
-    Azure = False
+    Azure=False,
 ):
     events = []
-    for key, value in tqdm(data.items(),desc='Vocab'):
+    for key, value in tqdm(data.items(), desc="Vocab"):
         if Azure:
             list_of_events = value["Events"]
             for n in range(len(list_of_events)):
@@ -38,7 +38,7 @@ def build_vocab(
 
     # Save vocabulary to a file
     if save_file is not None:
-     with open(save_file, "w") as file:
+        with open(save_file, "w") as file:
             for word in vocab_list.get_itos():
                 file.write(word + "\n")
 
