@@ -32,7 +32,6 @@ import torch.nn as nn
 import os
 import json
 from tqdm import tqdm
-import torch.cuda.amp as amp
 
 
 # %%
@@ -57,23 +56,22 @@ class BertConfig(Bert.modeling.BertConfig):
 # %%
 if Azure:
     file_config = {
-        "vocab": "../dataloader/vocab.txt",  # vocabulary idx2token, token2idx
         "data_train": "../../EHR_data/data/pre_train_training_set.json",  # formated data
         "data_val": "../../EHR_data/data/pre_train_validation_set.json",  # formated data
-        "model_path": "MLM/model1",  # where to save model
+        "model_path": "MLM/local_1",  # where to save model
         "model_name": "model",  # model name
+        "vocab": "vocab.txt",  # vocabulary idx2token, token2idx
         "file_name": "log.txt",  # log path
-        "vocab": "vocab.txt",
         "use_cuda": True,
         "device": "cuda:0",
     }
 else:
     file_config = {
-        "vocab": "/Users/mikkelsinkjaer/Library/Mobile Documents/com~apple~CloudDocs/transEHR/Code/transformerEHR/data/vocab.txt",  # vocabulary idx2token, token2idx
-        "data_train": "/Users/mikkelsinkjaer/Library/Mobile Documents/com~apple~CloudDocs/transEHR/Code/transformerEHR/data/syntheticData_train.json",
-        "data_val": "/Users/mikkelsinkjaer/Library/Mobile Documents/com~apple~CloudDocs/transEHR/Code/transformerEHR/data/syntheticData_val.json",
-        "model_path": "MLM/model1",  # where to save model
+        "data_train": "/Users/mikkelsinkjaer/data/data.json",
+        "data_val": "/Users/mikkelsinkjaer/data/data.json",
+        "model_path": "MLM/local_1",  # where to save model
         "model_name": "model",  # model name
+        "vocab": "vocab.txt",  # vocabulary idx2token, token2idx
         "file_name": "log.txt",  # log path
         "use_cuda": False,
         "device": "cpu",
@@ -97,11 +95,11 @@ with open(file_config["data_train"]) as f:
     data_train_json = json.load(f)
 
 # Build vocab
-if Azure:
-    vocab_path = os.path.join(file_config["model_path"], file_config["vocab"])
-    vocab_list, word_to_idx = build_vocab(data_train_json, Azure=Azure)
-else:
-    vocab_list, word_to_idx = load_vocab(file_config["vocab"])
+vocab_path = os.path.join(file_config["model_path"], file_config["vocab"])
+vocab_list, word_to_idx = build_vocab(
+    data_train_json,
+    save_file=vocab_path,
+)
 # %%
 # Data loader
 masked_data_train = MaskedDataset(data_train_json, vocab_list, word_to_idx)
@@ -115,7 +113,7 @@ trainload = DataLoader(
     batch_size=train_params["batch_size"],
     shuffle=False,
     pin_memory=True,
-    num_workers=6,
+    # num_workers=6,
 )
 sample_batch = next(iter(trainload))
 
@@ -130,7 +128,7 @@ valload = DataLoader(
     batch_size=train_params["batch_size"],
     shuffle=False,
     pin_memory=True,
-    num_workers=6,
+    # num_workers=6,
 )
 
 
@@ -178,8 +176,6 @@ def train(e, loader):
     nb_tr_examples, nb_tr_steps = 0, 0
     start = time.time()
 
-    scaler = amp.GradScaler()
-
     for step, batch in enumerate(tqdm(loader, desc="training")):
         batch = tuple(t.to(train_params["device"]) for t in batch)
 
@@ -193,19 +189,18 @@ def train(e, loader):
             output_labels,
         ) = batch
 
-        with amp.autocast():
-            loss, pred, label = model(
-                input_ids,
-                dates_ids=dates_ids,
-                age_ids=age_ids,
-                seg_ids=segment_ids,
-                posi_ids=posi_ids,
-                attention_mask=attMask,
-                masked_lm_labels=output_labels,
-            )
+        loss, pred, label = model(
+            input_ids,
+            dates_ids=dates_ids,
+            age_ids=age_ids,
+            seg_ids=segment_ids,
+            posi_ids=posi_ids,
+            attention_mask=attMask,
+            masked_lm_labels=output_labels,
+        )
         if global_params["gradient_accumulation_steps"] > 1:
             loss = loss / global_params["gradient_accumulation_steps"]
-        scaler.scale(loss).backward()
+        loss.backward()
 
         temp_loss += loss.item()
         tr_loss += loss.item()
@@ -227,14 +222,14 @@ def train(e, loader):
             start = time.time()
 
         if (step + 1) % global_params["gradient_accumulation_steps"] == 0:
-            scaler.step(optim)
-            scaler.update()
+            optim.step()
             optim.zero_grad()
 
         ###
         if step == 100:
             break
         ###
+
     print("** ** * Saving fine - tuned model ** ** * ")
     model_to_save = (
         model.module if hasattr(model, "module") else model
@@ -260,6 +255,7 @@ def validation(loader):
     total_count = 0
     nb_val_examples = 0
     with torch.no_grad():
+        count = 0
         for batch in tqdm(loader, desc="Validation"):
             batch = tuple(t.to(train_params["device"]) for t in batch)
 
@@ -286,6 +282,10 @@ def validation(loader):
             total_loss += loss.item()
             total_count += 1
             nb_val_examples += input_ids.size(0)
+
+            count += 1
+            if count == 1:
+                break
 
     model.train()  # Set model back to train mode
     return total_loss / nb_val_examples, total_acc / total_count

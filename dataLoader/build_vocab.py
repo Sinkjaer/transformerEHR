@@ -17,18 +17,12 @@ def build_vocab(
     data,
     special_tokens=("<UNK>", "<CLS>", "<SEP>", "<PAD>", "<MASK>"),
     save_file=None,
-    Azure=False,
 ):
     events = []
     for key, value in tqdm(data.items(), desc="Vocab"):
-        if Azure:
-            list_of_events = value["Events"]
-            for n in range(len(list_of_events)):
-                events.append(list_of_events[n]["Type"])
-        else:
-            list_of_events = value["events"]
-            for n in range(len(list_of_events)):
-                events.append(list_of_events[n]["codes"])
+        list_of_events = value["Events"]
+        for n in range(len(list_of_events)):
+            events.append(list_of_events[n]["Type"])
 
     # Build vocabulary
     events = unique_strings(events)
