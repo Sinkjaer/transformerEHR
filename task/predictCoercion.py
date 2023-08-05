@@ -55,15 +55,14 @@ class BertConfig(Bert.modeling.BertConfig):
         self.age_vocab_size = config.get("age_vocab_size")
 
 
-# %%
 if Azure:
     file_config = {
-        "vocab": "../dataloader/vocab.txt",  # vocabulary idx2token, token2idx
         "data_train": "../../EHR_data/data/fine_tune_training_set.json",  # formated data
         "data_val": "../../EHR_data/data/fine_tune_validation_set.json",  # formated data
-        "model_path": "MLM/model1/",  # where to save model
-        "prediction_model_name": "pred_model1",  # Name of the prediction model
+        "model_path": "MLM/azure_1/",  # where to save model
+        "prediction_model_name": "pred",  # Name of the prediction model
         "model_name": "model",  # model name
+        "vocab": "vocab.txt",  # vocabulary idx2token, token2idx
         "file_name": "log_pred.txt",  # log path
         "use_cuda": True,
         "device": "cuda:0",
@@ -87,7 +86,7 @@ global_params = {"max_seq_len": 512, "gradient_accumulation_steps": 1}
 optim_param = {"lr": 3e-6, "warmup_proportion": 0.1, "weight_decay": 0.01}
 
 train_params = {
-    "batch_size": 64,
+    "batch_size": 32,
     "use_cuda": file_config["use_cuda"],
     "max_len_seq": global_params["max_seq_len"],
     "device": file_config["device"],
@@ -184,6 +183,7 @@ def precision(logits, label):
 def precision_test(logits, label):
     sig = nn.Sigmoid()
     output = sig(logits)
+    label, output = label.cpu(), output.detach().cpu()
     tempprc = sklearn.metrics.average_precision_score(
         label.numpy(), output.numpy(), average="samples"
     )

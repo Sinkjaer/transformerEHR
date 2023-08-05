@@ -371,7 +371,7 @@ def process_data_CoercionRisk(
         position_sequence = position_sequence[:sample_index]
 
     # Ensure that sequence is not to large
-    if total_length > max_length:
+    if len(code_sequence) > max_length:
         date_sequence = date_sequence[-max_length:]
         age_sequence = age_sequence[-max_length:]
         code_sequence = code_sequence[-max_length:]
@@ -379,7 +379,11 @@ def process_data_CoercionRisk(
         position_sequence = position_sequence[-max_length:]
 
         # Remove entries prior to the first '[SEP]'
-        index = code_sequence.index(SEP_TOKEN)
+        try: # Is used if the sequence don't contain a sep token
+            index = code_sequence.index(SEP_TOKEN)
+        except:
+            print(code_sequence)
+            index=0
         date_sequence = date_sequence[index:]
         age_sequence = age_sequence[index:]
         code_sequence = code_sequence[index:]

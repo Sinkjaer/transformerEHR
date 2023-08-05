@@ -58,7 +58,7 @@ if Azure:
     file_config = {
         "data_train": "../../EHR_data/data/pre_train_training_set.json",  # formated data
         "data_val": "../../EHR_data/data/pre_train_validation_set.json",  # formated data
-        "model_path": "MLM/local_1",  # where to save model
+        "model_path": "MLM/azure_1",  # where to save model
         "model_name": "model",  # model name
         "vocab": "vocab.txt",  # vocabulary idx2token, token2idx
         "file_name": "log.txt",  # log path
@@ -83,7 +83,7 @@ global_params = {"max_seq_len": 512, "gradient_accumulation_steps": 1}
 optim_param = {"lr": 3e-6, "warmup_proportion": 0.1, "weight_decay": 0.01}
 
 train_params = {
-    "batch_size": 64,
+    "batch_size": 32,
     "use_cuda": file_config["use_cuda"],
     "max_len_seq": global_params["max_seq_len"],
     "device": file_config["device"],
