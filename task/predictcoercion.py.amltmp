@@ -33,7 +33,7 @@ import os
 import json
 import sklearn
 from sklearn.preprocessing import MultiLabelBinarizer
-import torch.cuda.amp as amp
+from tqdm import tqdm
 
 
 # %%
@@ -55,28 +55,27 @@ class BertConfig(Bert.modeling.BertConfig):
         self.age_vocab_size = config.get("age_vocab_size")
 
 
-# %%
 if Azure:
     file_config = {
-        "vocab": "../dataloader/vocab.txt",  # vocabulary idx2token, token2idx
         "data_train": "../../EHR_data/data/fine_tune_training_set.json",  # formated data
         "data_val": "../../EHR_data/data/fine_tune_validation_set.json",  # formated data
-        "model_path": "MLM/model1/",  # where to save model
-        "prediction_model_name": "pred_model1", # Name of the prediction model 
+        "model_path": "MLM/azure_1/",  # where to save model
+        "prediction_model_name": "pred",  # Name of the prediction model
         "model_name": "model",  # model name
+        "vocab": "vocab.txt",  # vocabulary idx2token, token2idx
         "file_name": "log_pred.txt",  # log path
         "use_cuda": True,
         "device": "cuda:0",
     }
 else:
     file_config = {
-        "vocab": "/Users/mikkelsinkjaer/Library/Mobile Documents/com~apple~CloudDocs/transEHR/Code/transformerEHR/data/vocab.txt",  # vocabulary idx2token, token2idx
-        "data_train": "/Users/mikkelsinkjaer/Library/Mobile Documents/com~apple~CloudDocs/transEHR/Code/transformerEHR/data/syntheticData_train.json",
-        "data_val": "/Users/mikkelsinkjaer/Library/Mobile Documents/com~apple~CloudDocs/transEHR/Code/transformerEHR/data/syntheticData_val.json",
-        "model_path": "MLM/model1/",  # where to save model
-        "prediction_model_name": "pred_model1", # Name of the prediction model 
+        "data_train": "/Users/mikkelsinkjaer/data/data.json",
+        "data_val": "/Users/mikkelsinkjaer/data/data.json",
+        "model_path": "MLM/local_1",  # where to save model
         "model_name": "model",  # model name
-        "file_name": "log_pred.txt",  # log path
+        "prediction_model_name": "pred_model",  # Name of the prediction model
+        "vocab": "vocab.txt",  # vocabulary idx2token, token2idx
+        "file_name": "log.txt",  # log path
         "use_cuda": False,
         "device": "cpu",
     }
@@ -87,16 +86,17 @@ global_params = {"max_seq_len": 512, "gradient_accumulation_steps": 1}
 optim_param = {"lr": 3e-6, "warmup_proportion": 0.1, "weight_decay": 0.01}
 
 train_params = {
-    "batch_size": 128,
+    "batch_size": 32,
     "use_cuda": file_config["use_cuda"],
     "max_len_seq": global_params["max_seq_len"],
     "device": file_config["device"],
 }
 
 # Load vocab
-vocab_list, word_to_idx = load_vocab(file_path=file_config["vocab"])
+vocab_path = os.path.join(file_config["model_path"], file_config["vocab"])
+vocab_list, word_to_idx = load_vocab(file_path=vocab_path)
 
-print('size of vocab: ',len(vocab_list))
+print("size of vocab: ", len(vocab_list))
 
 # %%
 # TODO - use new dataloader
@@ -142,15 +142,10 @@ model_config = {
     "hidden_act": "gelu",  # The non-linear activation function in the encoder and the pooler "gelu", 'relu', 'swish' are supported
     "initializer_range": 0.02,  # parameter weight initializer range
 }
-feature_dict = {
-    'word':True,
-    'seg':True,
-    'age':True,
-    'position': True
-}
+feature_dict = {"word": True, "seg": True, "age": True, "position": True}
 
 conf = BertConfig(model_config)
-model = BertForMultiLabelPrediction(config=conf, num_labels=2)
+model = BertForMultiLabelPrediction(config=conf, num_labels=1)
 
 
 def load_model(path, model):
@@ -188,6 +183,7 @@ def precision(logits, label):
 def precision_test(logits, label):
     sig = nn.Sigmoid()
     output = sig(logits)
+    label, output = label.cpu(), output.detach().cpu()
     tempprc = sklearn.metrics.average_precision_score(
         label.numpy(), output.numpy(), average="samples"
     )
@@ -208,8 +204,6 @@ def train(e, loader):
     nb_tr_examples, nb_tr_steps = 0, 0
     start = time.time()
 
-    scaler = amp.GradScaler()
-
     for step, batch in enumerate(tqdm(loader, desc="training")):
         batch = tuple(t.to(train_params["device"]) for t in batch)
 
@@ -223,19 +217,18 @@ def train(e, loader):
             output_labels,
         ) = batch
 
-        with amp.autocast():
-            loss, logits = model(  # TODO use prediction model
-                input_ids,
-                dates_ids=dates_ids,
-                age_ids=age_ids,
-                seg_ids=segment_ids,
-                posi_ids=posi_ids,
-                attention_mask=attMask,
-                labels=output_labels,
-            )
+        loss, logits = model(  # TODO use prediction model
+            input_ids,
+            dates_ids=dates_ids,
+            age_ids=age_ids,
+            seg_ids=segment_ids,
+            posi_ids=posi_ids,
+            attention_mask=attMask,
+            labels=output_labels,
+        )
         if global_params["gradient_accumulation_steps"] > 1:
             loss = loss / global_params["gradient_accumulation_steps"]
-        scaler.scale(loss).backward()
+        loss.backward()
 
         temp_loss += loss.item()
         tr_loss += loss.item()
@@ -249,7 +242,7 @@ def train(e, loader):
                     e,
                     step + 1,
                     temp_loss / 100,
-                    precision(logits, output_labels),
+                    precision(logits, output_labels)[0],
                     time.time() - start,
                 )
             )
@@ -257,9 +250,11 @@ def train(e, loader):
             start = time.time()
 
         if (step + 1) % global_params["gradient_accumulation_steps"] == 0:
-            scaler.step(optim)
-            scaler.update()
+            optim.step()
             optim.zero_grad()
+
+        if step == 100:
+            break
 
     print("** ** * Saving fine - tuned model ** ** * ")
     model_to_save = (
@@ -286,6 +281,7 @@ def validation(loader):
     total_count = 0
     nb_val_examples = 0
     with torch.no_grad():
+        count = 0
         for batch in tqdm(loader, desc="Validation"):
             batch = tuple(t.to(train_params["device"]) for t in batch)
 
@@ -308,10 +304,14 @@ def validation(loader):
                 labels=output_labels,
             )
 
-            total_acc += precision_test(logits, output_labels)
+            total_acc += precision_test(logits, output_labels)[0]
             total_loss += loss.item()
             total_count += 1
             nb_val_examples += input_ids.size(0)
+
+            count += 1
+            if count == 10:
+                break
 
     model.train()  # Set model back to train mode
     return total_loss / nb_val_examples, total_acc / total_count
@@ -319,7 +319,7 @@ def validation(loader):
 
 f = open(os.path.join(file_config["model_path"], file_config["file_name"]), "w")
 f.write("{}\t{}\t{}\t{}\t{}\n".format("epoch", "loss", "time", "val_loss", "val_acc"))
-for e in range(1):
+for e in range(100):
     loss, time_cost = train(e, trainload)
     loss = loss / 1  # data_len
     val_loss, val_acc = validation(valload)  # Calculate validation loss and accuracy
@@ -328,3 +328,5 @@ for e in range(1):
         "{}\t{}\t{}\t{}\t{}\n".format(e, loss, time_cost, val_loss, val_acc)
     )  # Log validation loss and accuracy
 f.close()
+
+# %%
