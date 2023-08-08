@@ -11,9 +11,9 @@ current_directory = os.getcwd()
 # Print the current working directory
 print(current_directory)
 
-Azure = True
+Azure = False
 
-# %%
+
 from common.common import create_folder
 from common.pytorch import load_model
 from dataLoader.build_vocab import load_vocab, build_vocab
@@ -34,7 +34,6 @@ import json
 from tqdm import tqdm
 
 
-# %%
 class BertConfig(Bert.modeling.BertConfig):
     def __init__(self, config):
         super(BertConfig, self).__init__(
@@ -51,6 +50,7 @@ class BertConfig(Bert.modeling.BertConfig):
         )
         self.seg_vocab_size = config.get("seg_vocab_size")
         self.age_vocab_size = config.get("age_vocab_size")
+        self.date_vocab_size = config.get("date_vocab_size")
 
 
 # %%
@@ -107,7 +107,7 @@ sample = next(iter(masked_data_train))
 # data = process_data_MLM(data_json, vocab_list, word_to_idx, mask_prob=0.20, Azure=Azure)
 # masked_data = MaskedDataset(data)
 # sample = next(iter(masked_data))
-
+# %%
 trainload = DataLoader(
     dataset=masked_data_train,
     batch_size=train_params["batch_size"],
@@ -136,6 +136,9 @@ model_config = {
     "vocab_size": len(vocab_list),  # number of disease + symbols for word embedding
     "hidden_size": 288,  # word embedding and seg embedding hidden size
     "seg_vocab_size": 2,  # number of vocab for seg embedding
+    "date_vocab_size": int(
+        365.25 * 23
+    ),  # number of vocab for dates embedding --> days in 23 years
     "age_vocab_size": 144,  # number of vocab for age embedding
     "max_position_embedding": train_params["max_len_seq"],  # maximum number of tokens
     "hidden_dropout_prob": 0.1,  # dropout rate
@@ -293,7 +296,7 @@ def validation(loader):
 
 f = open(os.path.join(file_config["model_path"], file_config["file_name"]), "w")
 f.write("{}\t{}\t{}\t{}\t{}\n".format("epoch", "loss", "time", "val_loss", "val_acc"))
-for e in range(1):
+for e in range(100):
     loss, time_cost = train(e, trainload)
     loss = loss / 1  # data_len
     val_loss, val_acc = validation(valload)  # Calculate validation loss and accuracy

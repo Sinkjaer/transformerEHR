@@ -14,6 +14,7 @@ from dataLoader.utils import random_masking
 
 from tqdm import tqdm
 import random
+import numpy as np
 
 
 # %% MLM data loader
@@ -76,14 +77,19 @@ def process_data_MLM(
         "codes": "Type",
     }
 
-    # Process birth date and events
-    birth_date = datetime.strptime(patient_data[names["birth_date"]], "%Y-%m-%d")
+    # remove empty events and sort events by date
     events = patient_data[names["events"]]
     events = [
-        event for event in events if event.get(names["event_date"])
+        event for event in events if event.get(names["codes"])
     ]  # Remove empty items
-    # TODO This does not sort the events correctly as they are strings
-    events.sort(key=lambda x: x[names["event_date"]])  # Sort events by dates
+    events.sort(
+        key=lambda x: (x[names["event_date"]], x[names["codes"]])
+    )  # Sort events by dates and names
+
+    birth_date = patient_data[names["birth_date"]]
+    ref_date = events[-1][names["event_date"]]  # Set reference date to last event date
+    minutes_per_year = 60 * 24 * 365.25  # Minutes per year
+    minutes_per_day = 60 * 24  # Minutes per day
 
     # Group date and 'codes' with the same ID together
     admid_groups = {}
@@ -110,12 +116,11 @@ def process_data_MLM(
 
     for date_list, code_list in admid_groups.values():
         # Add date and code sequences
-        # TODO use timestaps instead of dates
-        date_list = [datetime.strptime(date[:10], "%Y-%m-%d") for date in date_list]
-        date_sequence.extend([(date - ref_date).days for date in date_list])
-        # patient can for som reason be younger than 0
+        date_sequence.extend(
+            [int((ref_date - date) // minutes_per_day) for date in date_list]
+        )
         age_sequence.extend(
-            [max(0, relativedelta(date, birth_date).years) for date in date_list]
+            [max(0, int((date - birth_date) // minutes_per_year)) for date in date_list]
         )
 
         code_sequence.extend(code_list + [SEP_TOKEN])
@@ -266,14 +271,46 @@ def process_data_CoercionRisk(
         "codes": "Type",
     }
 
+    # Get index of ceroction and psych admission
+    coercion = list(
+        set(patient_data["Coercion_2_idx"] + patient_data["Coercion_3_idx"])
+    )
+    psych_admission = patient_data["Psych_admission_idx"]
+
+    psych_admission_no_coercion = [
+        idx for idx in psych_admission if idx not in coercion
+    ]
+
+    # sample event
+    if len(coercion) > 0:
+        if (random.random() < 0.8) or (len(psych_admission_no_coercion) == 0):
+            sample_index = random.sample(coercion, 1)[0]
+            coercion_label = 1
+        else:
+            sample_index = random.sample(psych_admission_no_coercion, 1)[0]
+            coercion_label = 0
+    else:
+        sample_index = random.sample(psych_admission, 1)[0]
+        coercion_label = 0
+
+    # replace sampled index with sample token
+    patient_data["Events"][sample_index]["Type"] = "sample"
+
     # Process birth date and events
-    birth_date = datetime.strptime(patient_data[names["birth_date"]], "%Y-%m-%d")
     events = patient_data[names["events"]]
     events = [
         event for event in events if event.get(names["event_date"])
     ]  # Remove empty items
-    # TODO This does not sort the events correctly as they are strings
-    events.sort(key=lambda x: x[names["event_date"]])  # Sort events by dates
+    events.sort(
+        key=lambda x: (x[names["event_date"]], x[names["codes"]])
+    )  # Sort events by dates and names
+
+    birth_date = patient_data[names["birth_date"]]
+    ref_date = patient_data[names["events"]][sample_index][
+        "Time"
+    ]  # Set reference date to the sample
+    minutes_per_year = 60 * 24 * 365.25  # Minutes per year
+    minutes_per_day = 60 * 24  # Minutes per day
 
     # Group date and 'codes' with the same ID together
     admid_groups = {}
@@ -299,13 +336,15 @@ def process_data_CoercionRisk(
     total_length = 0
 
     for date_list, code_list in admid_groups.values():
+        # Stop if sample token is reached
+        if "sample" in code_list:
+            break
         # Add date and code sequences
-        # TODO use timestaps instead of dates
-        date_list = [datetime.strptime(date[:10], "%Y-%m-%d") for date in date_list]
-        date_sequence.extend([(date - ref_date).days for date in date_list])
-        # patient can for som reason be younger than 0
+        date_sequence.extend(
+            [int((ref_date - date) // minutes_per_day) for date in date_list]
+        )
         age_sequence.extend(
-            [max(0, relativedelta(date, birth_date).years) for date in date_list]
+            [max(0, int((date - birth_date) // minutes_per_year)) for date in date_list]
         )
 
         code_sequence.extend(code_list + [SEP_TOKEN])
@@ -317,7 +356,6 @@ def process_data_CoercionRisk(
         segment = position % 2
         total_length += len(code_list) + 2
 
-    coercion_label = -1
     # Remove the last '[SEP]' from the sequences
     date_sequence = date_sequence[:-1]
     age_sequence = age_sequence[:-1]
@@ -325,50 +363,32 @@ def process_data_CoercionRisk(
     segment_sequence = segment_sequence[:-1]
     position_sequence = position_sequence[:-1]
 
-    # Get coercion and psych admission events
-    coercion = [
-        index
-        for index, value in enumerate(code_sequence)
-        if value == "coercion_2_start" or value == "coercion_3_start"
-    ]
-    psych_admission = [
-        index for index, value in enumerate(code_sequence) if value == "psych_admission"
-    ]
-
-    if len(coercion) > 0:
-        # sample a random encounter with coercion and get the first index where the coercion is present in
-        if random.random() < 1:
-            coercion_label = 1
-
-            sample_index = random.sample(coercion, 1)[0]
-
-            # Trim sequence
-            code_sequence = code_sequence[:sample_index]
-            date_sequence = date_sequence[:sample_index]
-            segment_sequence = segment_sequence[:sample_index]
-            age_sequence = age_sequence[:sample_index]
-            position_sequence = position_sequence[:sample_index]
-
-        # Sample random psych admission
-        else:
-            coercion_label = 0
-            sample_index = random.sample(psych_admission, 1)[0]
-            # Trim sequence
-            code_sequence = code_sequence[:sample_index]
-            date_sequence = date_sequence[:sample_index]
-            segment_sequence = segment_sequence[:sample_index]
-            age_sequence = age_sequence[:sample_index]
-            position_sequence = position_sequence[:sample_index]
-    else:
-        coercion_label = 0
-        sample_index = random.sample(psych_admission, 1)[0]
-
-        # Trim sequence
-        code_sequence = code_sequence[:sample_index]
-        date_sequence = date_sequence[:sample_index]
-        segment_sequence = segment_sequence[:sample_index]
-        age_sequence = age_sequence[:sample_index]
-        position_sequence = position_sequence[:sample_index]
+    # Remove events that happens after the sample
+    if any(np.array(date_sequence) < 0):
+        negative_date_idx = list(np.where(np.array(date_sequence) < 0)[0])
+        date_sequence = [
+            date
+            for idx, date in enumerate(date_sequence)
+            if idx not in negative_date_idx
+        ]
+        age_sequence = [
+            age for idx, age in enumerate(age_sequence) if idx not in negative_date_idx
+        ]
+        code_sequence = [
+            code
+            for idx, code in enumerate(code_sequence)
+            if idx not in negative_date_idx
+        ]
+        segment_sequence = [
+            segment
+            for idx, segment in enumerate(segment_sequence)
+            if idx not in negative_date_idx
+        ]
+        position_sequence = [
+            position
+            for idx, position in enumerate(position_sequence)
+            if idx not in negative_date_idx
+        ]
 
     # Ensure that sequence is not to large
     if len(code_sequence) > max_length:
@@ -379,11 +399,10 @@ def process_data_CoercionRisk(
         position_sequence = position_sequence[-max_length:]
 
         # Remove entries prior to the first '[SEP]'
-        try: # Is used if the sequence don't contain a sep token
+        try:  # Is used if the sequence don't contain a sep token
             index = code_sequence.index(SEP_TOKEN)
         except:
             print(code_sequence)
-            index=0
         date_sequence = date_sequence[index:]
         age_sequence = age_sequence[index:]
         code_sequence = code_sequence[index:]

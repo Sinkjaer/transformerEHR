@@ -11,9 +11,8 @@ current_directory = os.getcwd()
 # Print the current working directory
 print(current_directory)
 
-Azure = True
+Azure = False
 
-# %%
 from common.common import create_folder
 from common.pytorch import load_model
 from dataLoader.build_vocab import load_vocab, build_vocab
@@ -36,7 +35,6 @@ from sklearn.preprocessing import MultiLabelBinarizer
 from tqdm import tqdm
 
 
-# %%
 class BertConfig(Bert.modeling.BertConfig):
     def __init__(self, config):
         super(BertConfig, self).__init__(
@@ -53,6 +51,7 @@ class BertConfig(Bert.modeling.BertConfig):
         )
         self.seg_vocab_size = config.get("seg_vocab_size")
         self.age_vocab_size = config.get("age_vocab_size")
+        self.date_vocab_size = config.get("date_vocab_size")
 
 
 if Azure:
@@ -99,7 +98,6 @@ vocab_list, word_to_idx = load_vocab(file_path=vocab_path)
 print("size of vocab: ", len(vocab_list))
 
 # %%
-# TODO - use new dataloader
 # Data loader
 with open(file_config["data_train"]) as f:
     data_train_json = json.load(f)
@@ -111,7 +109,7 @@ trainload = DataLoader(
     batch_size=train_params["batch_size"],
     shuffle=False,
     pin_memory=True,
-    num_workers=6,
+    # num_workers=6,
 )
 
 # Data loader for validation set
@@ -125,13 +123,16 @@ valload = DataLoader(
     batch_size=train_params["batch_size"],
     shuffle=False,
     pin_memory=True,
-    num_workers=6,
+    # num_workers=6,
 )
 
 model_config = {
     "vocab_size": len(vocab_list),  # number of disease + symbols for word embedding
     "hidden_size": 288,  # word embedding and seg embedding hidden size
     "seg_vocab_size": 2,  # number of vocab for seg embedding
+    "date_vocab_size": int(
+        365.25 * 23
+    ),  # number of vocab for dates embedding --> days in 23 years
     "age_vocab_size": 144,  # number of vocab for age embedding
     "max_position_embedding": train_params["max_len_seq"],  # maximum number of tokens
     "hidden_dropout_prob": 0.1,  # dropout rate

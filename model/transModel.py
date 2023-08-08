@@ -10,6 +10,13 @@ class BertEmbeddings(nn.Module):
     def __init__(self, config):
         super(BertEmbeddings, self).__init__()
         self.word_embeddings = nn.Embedding(config.vocab_size, config.hidden_size)
+        self.date_embeddings = nn.Embedding(
+            config.date_vocab_size, config.hidden_size
+        ).from_pretrained(
+            embeddings=self._init_posi_embedding(
+                config.date_vocab_size, config.hidden_size
+            )
+        )
         self.segment_embeddings = nn.Embedding(
             config.seg_vocab_size, config.hidden_size
         )
@@ -34,8 +41,8 @@ class BertEmbeddings(nn.Module):
         posi_ids=None,
     ):
         # Only input tokens
-        dates_ids = None  # dates_ids is not used
-
+        if dates_ids is None:
+            dates_ids = None  # dates_ids is not used
         if seg_ids is None:
             seg_ids = torch.zeros_like(word_ids)
         if age_ids is None:
@@ -44,11 +51,14 @@ class BertEmbeddings(nn.Module):
             posi_ids = torch.zeros_like(word_ids)
 
         word_embed = self.word_embeddings(word_ids)
+        date_embed = self.date_embeddings(dates_ids)
         segment_embed = self.segment_embeddings(seg_ids)
         age_embed = self.age_embeddings(age_ids.long())
         posi_embeddings = self.posi_embeddings(posi_ids)
 
-        embeddings = word_embed + segment_embed + age_embed + posi_embeddings
+        embeddings = (
+            word_embed + date_embed + segment_embed + age_embed + posi_embeddings
+        )
 
         embeddings = self.LayerNorm(embeddings)
         embeddings = self.dropout(embeddings)
@@ -196,7 +206,7 @@ class BertForMultiLabelPrediction(Bert.modeling.BertPreTrainedModel):
     def forward(
         self,
         input_ids,
-        dates_ids = None,
+        dates_ids=None,
         age_ids=None,
         seg_ids=None,
         posi_ids=None,
