@@ -3,54 +3,54 @@
 <SEP>
 <PAD>
 <MASK>
-Aftale
-DF99
-5 Indlægges til us/op
-4 Ambulant us/op
-DF5
-Behandlingskontakt
-somatic_admission
+cancelled_postponed
+cancelled_tolk
 cancelled_hospitalized
-DF9
-3 Akut ambulant
-coercion_1_end
-DF6
-cancelled_government
-coercion_2_start
-DF1
-DF0_9
 coercion_2_end
-DF40_43
-DF10_19
-coercion_6_end
-psych_discharge
 2 Ambulant
+psych_discharge
+Aftale
+0 Indlagt
+DF20
+cancelled_government
+Telefonkontakt
+cancelled_moved
+DF40_43
+somatic_admission
+coercion_Tvangsindlæggelse
+DF4
+cancelled_moved_forward
+DF32_33
+coercion_3_end
+3 Akut ambulant
+coercion_1_start
+5 Indlægges til us/op
+DF99
+coercion_6_end
+DF2
 DF0
 coercion_3_start
-cancelled_patient
-somatic_discharge
-coercion_3_end
-coercion_Beroligende medicin
-DF60_69
-coercion_6_start
-cancelled_tolk
-coercion_1_start
-psych_admission
-DF4
-DF2
-DF32_33
-cancelled_moved
-Ambulant besøg
-0 Indlagt
-cancelled_other
-DF50_59
-DF20
-Telefonkontakt
-cancelled_treatment_completed
-cancelled_no_show
-DF3
-cancelled_moved_forward
-cancelled_postponed
-coercion_Tvangsindlæggelse
+DF5
 DF30_31
+cancelled_other
+4 Ambulant us/op
+coercion_2_start
+somatic_discharge
+DF1
+coercion_6_start
+DF50_59
+DF60_69
+Behandlingskontakt
+DF10_19
+cancelled_no_show
+coercion_1_end
+DF0_9
+DF9
+coercion_Beroligende medicin
+DF6
 DF21_29
+Ambulant besøg
+psych_admission
+cancelled_patient
+DF3
+cancelled_treatment_completed
