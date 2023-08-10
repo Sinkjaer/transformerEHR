@@ -3,6 +3,7 @@ import lightning.pytorch as pl
 import torch
 import numpy as np
 import pytorch_pretrained_bert as Bert
+from sklearn.metrics import accuracy_score
 
 
 class SequneceEmbeddings(nn.Module):
@@ -153,12 +154,16 @@ class BertModel(Bert.modeling.BertPreTrainedModel):
 class BertMLM(pl.LightningModule):
     def __init__(self, BertModel, config):
         super(BertMLM, self).__init__()
-        self.save_hyperparameters()
         self.BertModel = BertModel
         self.config = config  # Store the config
         self.cls = Bert.modeling.BertOnlyMLMHead(
             config, BertModel.embeddings.word_embeddings.weight
         )
+        self.loss_fct = nn.CrossEntropyLoss(ignore_index=-1)
+
+        # Log performance metrics
+        self.training_step_outputs = []
+        self.validation_step_outputs = []
 
     def training_step(self, batch, batch_idx):
         (
@@ -183,14 +188,48 @@ class BertMLM(pl.LightningModule):
 
         prediction_scores = self.cls(sequence_output)
 
-        loss_fct = nn.CrossEntropyLoss(ignore_index=-1)
-        masked_lm_loss = loss_fct(
-            prediction_scores.view(-1, self.config.vocab_size),
-            output_labels.view(-1),
-        )
-        self.log("train_loss", masked_lm_loss)
+        y = output_labels.view(-1)
+        y_hat = prediction_scores.view(-1, self.config.vocab_size)
+        masked_lm_loss = self.loss_fct(
+            y_hat,
+            y,
+        ) / len(y_hat)
 
-        return masked_lm_loss
+        y_true = y.cpu().detach().numpy()
+        y_pred = y_hat.argmax(axis=1).cpu().detach().numpy()
+
+        # Only make predictions on the masked tokens
+        index = y_true != -1
+        y_true = y_true[index]
+        y_pred = y_pred[index]
+
+        acc = accuracy_score(y_true, y_pred)
+
+        self.log(
+            "metrics/batch/loss_train",
+            masked_lm_loss,
+            prog_bar=False,
+        )
+        self.log("metrics/batch/acc_train", acc.astype(np.float32))
+
+        output = {"loss": masked_lm_loss, "y_true": y_true, "y_pred": y_pred}
+        self.training_step_outputs.append(output)
+        return output
+
+    def on_train_epoch_end(self):
+        outputs = self.training_step_outputs
+        loss = np.array([])
+        y_true = np.array([])
+        y_pred = np.array([])
+        for results_dict in outputs:
+            loss = np.append(loss, results_dict["loss"].cpu().detach().numpy())
+            y_true = np.append(y_true, results_dict["y_true"])
+            y_pred = np.append(y_pred, results_dict["y_pred"])
+        acc = accuracy_score(y_true, y_pred)
+        self.log("metrics/epoch/loss_train", loss.mean().astype(np.float32))
+        self.log("metrics/epoch/acc_train", acc.astype(np.float32))
+
+        self.training_step_outputs.clear()  # free memory
 
     def validation_step(self, batch, batch_idx):
         (
@@ -215,15 +254,179 @@ class BertMLM(pl.LightningModule):
 
         prediction_scores = self.cls(sequence_output)
 
-        loss_fct = nn.CrossEntropyLoss(ignore_index=-1)
-        masked_lm_loss = loss_fct(
-            prediction_scores.view(-1, self.config.vocab_size),
-            output_labels.view(-1),
-        )
-        self.log("val_loss", masked_lm_loss)
+        y = output_labels.view(-1)
+        y_hat = prediction_scores.view(-1, self.config.vocab_size)
+        masked_lm_loss = self.loss_fct(
+            y_hat,
+            y,
+        ) / len(y_hat)
 
-        return masked_lm_loss
+        y_true = y.cpu().detach().numpy()
+        y_pred = y_hat.argmax(axis=1).cpu().detach().numpy()
+
+        # Only make predictions on the masked tokens
+        index = y_true != -1
+        y_true = y_true[index]
+        y_pred = y_pred[index]
+
+        outputs = {"loss": masked_lm_loss, "y_true": y_true, "y_pred": y_pred}
+        self.validation_step_outputs.append(outputs)
+        return outputs
+
+    def on_validation_epoch_end(self):
+        outputs = self.validation_step_outputs
+        loss = np.array([])
+        y_true = np.array([])
+        y_pred = np.array([])
+        for results_dict in outputs:
+            loss = np.append(loss, results_dict["loss"].cpu().detach().numpy())
+            y_true = np.append(y_true, results_dict["y_true"])
+            y_pred = np.append(y_pred, results_dict["y_pred"])
+        acc = accuracy_score(y_true, y_pred)
+        self.log("metrics/epoch/loss_val", loss.mean().astype(np.float32))
+        self.log("metrics/epoch/acc_val", acc.astype(np.float32))
+
+        self.validation_step_outputs.clear()  # free memory
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.config.learning_rate)
+        return optimizer
+
+
+class BertPrediction(pl.LightningModule):
+    def __init__(self, BertModel, config, num_labels):
+        super(BertPrediction, self).__init__()
+        self.config = config  # Store the config
+        self.num_labels = num_labels
+        self.BertModel = BertModel
+        self.BertModel.requires_grad_(False)
+        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self.cls = nn.Linear(config.hidden_size, num_labels)
+        self.loss_fct = nn.MultiLabelSoftMarginLoss()
+
+        # Log performance metrics
+        self.training_step_outputs = []
+        self.validation_step_outputs = []
+
+    def training_step(self, batch, batch_idx):
+        (
+            dates_ids,
+            age_ids,
+            input_ids,
+            posi_ids,
+            segment_ids,
+            attMask,
+            output_labels,
+        ) = batch
+
+        _, pooled_output = self.BertModel(
+            input_ids,
+            dates_ids,
+            age_ids,
+            segment_ids,
+            posi_ids,
+            attMask,
+            output_all_encoded_layers=False,
+        )
+
+        pooled_output = self.dropout(pooled_output)
+        logits = self.cls(pooled_output)
+
+        y = output_labels.view(-1, self.num_labels)
+        y_hat = logits.view(-1, self.num_labels)
+        loss = self.loss_fct(
+            y_hat,
+            y,
+        ) / len(y_hat)
+
+        y_true = y.cpu().detach().numpy()
+        y_pred = y_hat.argmax(axis=1).cpu().detach().numpy()
+
+        acc = accuracy_score(y_true, y_pred)
+
+        self.log(
+            "metrics/batch/loss_train",
+            loss,
+            prog_bar=False,
+        )
+        self.log("metrics/batch/acc_train", acc.astype(np.float32))
+
+        output = {"loss": loss, "y_true": y_true, "y_pred": y_pred}
+        self.training_step_outputs.append(output)
+        return output
+
+    def on_train_epoch_end(self):
+        outputs = self.training_step_outputs
+        loss = np.array([])
+        y_true = np.array([])
+        y_pred = np.array([])
+        for results_dict in outputs:
+            loss = np.append(loss, results_dict["loss"].cpu().detach().numpy())
+            y_true = np.append(y_true, results_dict["y_true"])
+            y_pred = np.append(y_pred, results_dict["y_pred"])
+        acc = accuracy_score(y_true, y_pred)
+        self.log("metrics/epoch/loss_train", loss.mean().astype(np.float32))
+        self.log("metrics/epoch/acc_train", acc.astype(np.float32))
+
+        self.training_step_outputs.clear()  # free memory
+
+    def validation_step(self, batch, batch_idx):
+        (
+            dates_ids,
+            age_ids,
+            input_ids,
+            posi_ids,
+            segment_ids,
+            attMask,
+            output_labels,
+        ) = batch
+
+        _, pooled_output = self.BertModel(
+            input_ids,
+            dates_ids,
+            age_ids,
+            segment_ids,
+            posi_ids,
+            attMask,
+            output_all_encoded_layers=False,
+        )
+
+        pooled_output = self.dropout(pooled_output)
+        logits = self.cls(pooled_output)
+
+        y = output_labels.view(-1, self.num_labels)
+        y_hat = logits.view(-1, self.num_labels)
+        loss = self.loss_fct(
+            y_hat,
+            y,
+        ) / len(y_hat)
+
+        y_true = y.cpu().detach().numpy()
+        y_pred = y_hat.argmax(axis=1).cpu().detach().numpy()
+
+        output = {"loss": loss, "y_true": y_true, "y_pred": y_pred}
+        self.validation_step_outputs.append(output)
+        return output
+
+    def on_validation_epoch_end(self):
+        outputs = self.validation_step_outputs
+        loss = np.array([])
+        y_true = np.array([])
+        y_pred = np.array([])
+        for results_dict in outputs:
+            loss = np.append(loss, results_dict["loss"].cpu().detach().numpy())
+            y_true = np.append(y_true, results_dict["y_true"])
+            y_pred = np.append(y_pred, results_dict["y_pred"])
+        acc = accuracy_score(y_true, y_pred)
+        self.log("metrics/epoch/loss_val", loss.mean().astype(np.float32))
+        self.log("metrics/epoch/acc_val", acc.astype(np.float32))
+
+        self.validation_step_outputs.clear()  # free memory
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(
+            self.parameters(),
+            lr=self.config.optim_params.lr,
+            weight_decay=self.config.optim_params.weight_decay,
+        )
         return optimizer
