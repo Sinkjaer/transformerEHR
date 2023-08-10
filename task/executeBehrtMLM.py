@@ -54,8 +54,6 @@ if Azure:
         "model_name": "behrt",  # model name
         "vocab": "vocab.txt",  # vocabulary idx2token, token2idx
         "file_name": "log.txt",  # log path
-        "use_cuda": True,
-        "device": "cuda:0",
     }
 else:
     file_config = {
@@ -65,8 +63,6 @@ else:
         "model_name": "behrt",  # model name
         "vocab": "vocab.txt",  # vocabulary idx2token, token2idx
         "file_name": "log.txt",  # log path
-        "use_cuda": False,
-        "device": "cpu",
     }
 
 create_folder(file_config["model_path"])
@@ -102,7 +98,7 @@ trainload = DataLoader(
     batch_size=train_params["batch_size"],
     shuffle=False,
     pin_memory=True,
-    # num_workers=6,
+    num_workers=6,
 )
 masked_data_val = MaskedDataset(data_val_json, vocab_list, word_to_idx)
 valload = DataLoader(
@@ -110,7 +106,7 @@ valload = DataLoader(
     batch_size=train_params["batch_size"],
     shuffle=False,
     pin_memory=True,
-    # num_workers=6,
+    num_workers=6,
 )
 
 # Model config

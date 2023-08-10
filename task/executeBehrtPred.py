@@ -151,7 +151,7 @@ trainer = pl.Trainer(
     max_epochs=10,
     log_every_n_steps=10,
     callbacks=checkpoint_callback,
-    accelerator="cpu",
+    # accelerator="cpu",
 )
 
 # Train the model as usual
