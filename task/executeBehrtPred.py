@@ -95,9 +95,9 @@ masked_data_train = CoercionRiskDataset(data_train_json, vocab_list, word_to_idx
 trainload = DataLoader(
     dataset=masked_data_train,
     batch_size=train_params["batch_size"],
-    shuffle=False,
+    shuffle=True,
     pin_memory=True,
-    # num_workers=6,
+    num_workers=6,
 )
 masked_data_val = CoercionRiskDataset(data_val_json, vocab_list, word_to_idx)
 valload = DataLoader(
@@ -105,7 +105,7 @@ valload = DataLoader(
     batch_size=train_params["batch_size"],
     shuffle=False,
     pin_memory=True,
-    # num_workers=6,
+    num_workers=6,
 )
 
 # Model config

@@ -73,9 +73,7 @@ optim_param = {"lr": 2e-5, "warmup_proportion": 0.1, "weight_decay": 0.01}
 
 train_params = {
     "batch_size": 32,
-    "use_cuda": file_config["use_cuda"],
     "max_len_seq": global_params["max_seq_len"],
-    "device": file_config["device"],
 }
 
 # load data
@@ -96,7 +94,7 @@ masked_data_train = MaskedDataset(data_train_json, vocab_list, word_to_idx)
 trainload = DataLoader(
     dataset=masked_data_train,
     batch_size=train_params["batch_size"],
-    shuffle=False,
+    shuffle=True,
     pin_memory=True,
     num_workers=6,
 )
