@@ -1,0 +1,94 @@
+diff --git a/common/__pycache__/__init__.cpython-38.pyc b/common/__pycache__/__init__.cpython-38.pyc
+index 3847d41..e00ddd8 100644
+Binary files a/common/__pycache__/__init__.cpython-38.pyc and b/common/__pycache__/__init__.cpython-38.pyc differ
+diff --git a/common/__pycache__/common.cpython-38.pyc b/common/__pycache__/common.cpython-38.pyc
+index 2fd2438..4b3359f 100644
+Binary files a/common/__pycache__/common.cpython-38.pyc and b/common/__pycache__/common.cpython-38.pyc differ
+diff --git a/dataLoader/__pycache__/build_vocab.cpython-38.pyc b/dataLoader/__pycache__/build_vocab.cpython-38.pyc
+index 5aa32bd..cc6fb8f 100644
+Binary files a/dataLoader/__pycache__/build_vocab.cpython-38.pyc and b/dataLoader/__pycache__/build_vocab.cpython-38.pyc differ
+diff --git a/dataLoader/__pycache__/dataLoaderMLM.cpython-38.pyc b/dataLoader/__pycache__/dataLoaderMLM.cpython-38.pyc
+index a5dc338..8e56dca 100644
+Binary files a/dataLoader/__pycache__/dataLoaderMLM.cpython-38.pyc and b/dataLoader/__pycache__/dataLoaderMLM.cpython-38.pyc differ
+diff --git a/dataLoader/__pycache__/utils.cpython-38.pyc b/dataLoader/__pycache__/utils.cpython-38.pyc
+index 5dde3f3..85759a3 100644
+Binary files a/dataLoader/__pycache__/utils.cpython-38.pyc and b/dataLoader/__pycache__/utils.cpython-38.pyc differ
+diff --git a/model/__pycache__/behrt.cpython-38.pyc b/model/__pycache__/behrt.cpython-38.pyc
+index 3a814e6..ca9d7e5 100644
+Binary files a/model/__pycache__/behrt.cpython-38.pyc and b/model/__pycache__/behrt.cpython-38.pyc differ
+diff --git a/model/behrt.py b/model/behrt.py
+index 43a4617..734e8ff 100644
+--- a/model/behrt.py
++++ b/model/behrt.py
+@@ -289,7 +289,7 @@ class BertMLM(pl.LightningModule):
+         self.validation_step_outputs.clear()  # free memory
+ 
+     def configure_optimizers(self):
+-        optimizer = torch.optim.Adam(self.parameters(), lr=self.config.learning_rate)
++        optimizer = torch.optim.Adam(self.parameters(), lr=self.config.optim_param.lr,weight_decay=self.config.optim_param.weight_decay)
+         return optimizer
+ 
+ 
+@@ -426,7 +426,7 @@ class BertPrediction(pl.LightningModule):
+     def configure_optimizers(self):
+         optimizer = torch.optim.Adam(
+             self.parameters(),
+-            lr=self.config.optim_params.lr,
+-            weight_decay=self.config.optim_params.weight_decay,
++            lr=self.config.optim_param.lr,
++            weight_decay=self.config.optim_param.weight_decay,
+         )
+         return optimizer
+diff --git a/task/executeBehrtMLM.py b/task/executeBehrtMLM.py
+index 036c514..e5bfbfd 100644
+--- a/task/executeBehrtMLM.py
++++ b/task/executeBehrtMLM.py
+@@ -13,6 +13,7 @@ import os
+ import lightning.pytorch as pl
+ from lightning.pytorch.loggers import NeptuneLogger
+ from lightning.pytorch.callbacks import ModelCheckpoint
++from lightning.pytorch.tuner import Tuner
+ 
+ Azure = True
+ 
+@@ -47,6 +48,7 @@ class BertConfig(Bert.modeling.BertConfig):
+ 
+ 
+ if Azure:
++    os.environ['NEPTUNE_MODE'] = 'offline'
+     file_config = {
+         "data_train": "../../EHR_data/data/pre_train_training_set.json",  # formated data
+         "data_val": "../../EHR_data/data/pre_train_validation_set.json",  # formated data
+@@ -96,7 +98,7 @@ trainload = DataLoader(
+     batch_size=train_params["batch_size"],
+     shuffle=True,
+     pin_memory=True,
+-    num_workers=6,
++    # num_workers=6,
+ )
+ masked_data_val = MaskedDataset(data_val_json, vocab_list, word_to_idx)
+ valload = DataLoader(
+@@ -104,7 +106,7 @@ valload = DataLoader(
+     batch_size=train_params["batch_size"],
+     shuffle=False,
+     pin_memory=True,
+-    num_workers=6,
++    # num_workers=6,
+ )
+ 
+ # Model config
+@@ -141,13 +143,13 @@ task = BertMLM(model, BertConfig(model_config))
+ 
+ # Initialize the Trainer with the callback and Neptune logger
+ trainer = pl.Trainer(
+-    autoscale_batch_size="binsearch",
+     logger=neptune_logger,
+     max_epochs=10,
+     log_every_n_steps=10,
+     callbacks=checkpoint_callback,
+ )
+ 
++
+ # Train the model as usual
+ trainer.fit(model=task, train_dataloaders=trainload, val_dataloaders=valload)
+ # %%

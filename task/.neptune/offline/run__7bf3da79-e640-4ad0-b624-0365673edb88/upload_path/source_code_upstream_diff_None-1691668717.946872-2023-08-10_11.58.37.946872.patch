@@ -1,0 +1,117 @@
+diff --git a/common/__pycache__/__init__.cpython-38.pyc b/common/__pycache__/__init__.cpython-38.pyc
+index 3847d41..e00ddd8 100644
+Binary files a/common/__pycache__/__init__.cpython-38.pyc and b/common/__pycache__/__init__.cpython-38.pyc differ
+diff --git a/common/__pycache__/common.cpython-38.pyc b/common/__pycache__/common.cpython-38.pyc
+index 2fd2438..4b3359f 100644
+Binary files a/common/__pycache__/common.cpython-38.pyc and b/common/__pycache__/common.cpython-38.pyc differ
+diff --git a/dataLoader/__pycache__/build_vocab.cpython-38.pyc b/dataLoader/__pycache__/build_vocab.cpython-38.pyc
+index 5aa32bd..cc6fb8f 100644
+Binary files a/dataLoader/__pycache__/build_vocab.cpython-38.pyc and b/dataLoader/__pycache__/build_vocab.cpython-38.pyc differ
+diff --git a/dataLoader/__pycache__/dataLoaderMLM.cpython-38.pyc b/dataLoader/__pycache__/dataLoaderMLM.cpython-38.pyc
+index a5dc338..8e56dca 100644
+Binary files a/dataLoader/__pycache__/dataLoaderMLM.cpython-38.pyc and b/dataLoader/__pycache__/dataLoaderMLM.cpython-38.pyc differ
+diff --git a/dataLoader/__pycache__/utils.cpython-38.pyc b/dataLoader/__pycache__/utils.cpython-38.pyc
+index 5dde3f3..85759a3 100644
+Binary files a/dataLoader/__pycache__/utils.cpython-38.pyc and b/dataLoader/__pycache__/utils.cpython-38.pyc differ
+diff --git a/model/__pycache__/behrt.cpython-38.pyc b/model/__pycache__/behrt.cpython-38.pyc
+index 3a814e6..ca9d7e5 100644
+Binary files a/model/__pycache__/behrt.cpython-38.pyc and b/model/__pycache__/behrt.cpython-38.pyc differ
+diff --git a/model/behrt.py b/model/behrt.py
+index 43a4617..8b91597 100644
+--- a/model/behrt.py
++++ b/model/behrt.py
+@@ -289,7 +289,7 @@ class BertMLM(pl.LightningModule):
+         self.validation_step_outputs.clear()  # free memory
+ 
+     def configure_optimizers(self):
+-        optimizer = torch.optim.Adam(self.parameters(), lr=self.config.learning_rate)
++        optimizer = torch.optim.Adam(self.parameters(), lr=self.config.optim_param['lr'],weight_decay=self.config.optim_param['weight_decay'])
+         return optimizer
+ 
+ 
+@@ -424,9 +424,5 @@ class BertPrediction(pl.LightningModule):
+         self.validation_step_outputs.clear()  # free memory
+ 
+     def configure_optimizers(self):
+-        optimizer = torch.optim.Adam(
+-            self.parameters(),
+-            lr=self.config.optim_params.lr,
+-            weight_decay=self.config.optim_params.weight_decay,
+-        )
++        optimizer = torch.optim.Adam(self.parameters(), lr=self.config.optim_param['lr'],weight_decay=self.config.optim_param['weight_decay'])
+         return optimizer
+diff --git a/task/executeBehrtMLM.py b/task/executeBehrtMLM.py
+index 036c514..8ace57e 100644
+--- a/task/executeBehrtMLM.py
++++ b/task/executeBehrtMLM.py
+@@ -13,6 +13,7 @@ import os
+ import lightning.pytorch as pl
+ from lightning.pytorch.loggers import NeptuneLogger
+ from lightning.pytorch.callbacks import ModelCheckpoint
++from lightning.pytorch.tuner import Tuner
+ 
+ Azure = True
+ 
+@@ -47,6 +48,7 @@ class BertConfig(Bert.modeling.BertConfig):
+ 
+ 
+ if Azure:
++    os.environ['NEPTUNE_MODE'] = 'offline'
+     file_config = {
+         "data_train": "../../EHR_data/data/pre_train_training_set.json",  # formated data
+         "data_val": "../../EHR_data/data/pre_train_validation_set.json",  # formated data
+@@ -72,7 +74,7 @@ global_params = {"max_seq_len": 512, "gradient_accumulation_steps": 1}
+ optim_param = {"lr": 2e-5, "warmup_proportion": 0.1, "weight_decay": 0.01}
+ 
+ train_params = {
+-    "batch_size": 32,
++    "batch_size": 128,
+     "max_len_seq": global_params["max_seq_len"],
+ }
+ 
+@@ -141,13 +143,13 @@ task = BertMLM(model, BertConfig(model_config))
+ 
+ # Initialize the Trainer with the callback and Neptune logger
+ trainer = pl.Trainer(
+-    autoscale_batch_size="binsearch",
+     logger=neptune_logger,
+     max_epochs=10,
+-    log_every_n_steps=10,
++    log_every_n_steps=100,
+     callbacks=checkpoint_callback,
+ )
+ 
++
+ # Train the model as usual
+ trainer.fit(model=task, train_dataloaders=trainload, val_dataloaders=valload)
+ # %%
+diff --git a/task/executeBehrtPred.py b/task/executeBehrtPred.py
+index ea4351f..3147008 100644
+--- a/task/executeBehrtPred.py
++++ b/task/executeBehrtPred.py
+@@ -47,7 +47,7 @@ class BertConfig(Bert.modeling.BertConfig):
+         self.seg_vocab_size = config.get("seg_vocab_size")
+         self.age_vocab_size = config.get("age_vocab_size")
+         self.date_vocab_size = config.get("date_vocab_size")
+-        self.learning_rate = config.get("optim_param")
++        self.optim_param = config.get("optim_param")
+ 
+ 
+ if Azure:
+@@ -125,7 +125,7 @@ model_config = {
+     "intermediate_size": 512,  # the size of the "intermediate" layer in the transformer encoder
+     "hidden_act": "gelu",  # The non-linear activation function in the encoder and the pooler "gelu", 'relu', 'swish' are supported
+     "initializer_range": 0.02,  # parameter weight initializer range
+-    "optim_param": optim_param,  # learning rate
++    "optim_param": optim_param,  # Optimization parameters
+ }
+ 
+ 
+@@ -146,7 +146,6 @@ task = load_model(
+ # %%
+ # Initialize the Trainer with the callback and Neptune logger
+ trainer = pl.Trainer(
+-    auto_scale_batch_size="binsearch",
+     logger=neptune_logger,
+     max_epochs=10,
+     log_every_n_steps=10,

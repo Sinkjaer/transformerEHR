@@ -1,0 +1,68 @@
+<UNK>
+<CLS>
+<SEP>
+<PAD>
+<MASK>
+coercion_4_end
+Aftale
+cancelled_død
+DF70_79
+cancelled_tolk
+coercion_4_start
+cancelled_government
+coercion_1_start
+coercion_2_end
+DF90_98
+Telefonkontakt
+0 Indlagt
+DF50_59
+cancelled_patient
+DF32_33
+DF4
+cancelled_moved
+cancelled_moved_forward
+DF0_9
+DF20
+coercion_Bælte
+coercion_2_start
+4 Ambulant us/op
+DF8
+2 Ambulant
+coercion_6_start
+DF80_89
+DF44_49
+DF40_43
+3 Akut ambulant
+cancelled_no_show
+cancelled_other
+psych_admission
+somatic_discharge
+DF5
+DF0
+DF99
+DF2
+coercion_Tvangsindlæggelse
+DF34_39
+cancelled_hospitalized
+coercion_Beroligende medicin
+Ambulant besøg
+somatic_admission
+cancelled_reschedule
+DF9
+Behandlingskontakt
+psych_discharge
+DF10_19
+DF3
+DF21_29
+DF7
+coercion_3_start
+coercion_6_end
+5 Indlægges til us/op
+DF6
+cancelled_treatment_completed
+DF60_69
+coercion_1_end
+DF1
+coercion_3_end
+cancelled_postponed
+DF30_31
