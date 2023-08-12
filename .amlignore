@@ -4,3 +4,7 @@
 .ipynb_aml_checkpoints/ 
 *.amltmp 
 *.amltemp
+.git
+.vscode
+__pychache__
+data
