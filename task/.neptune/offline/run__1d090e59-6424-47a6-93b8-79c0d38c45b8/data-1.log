@@ -1,0 +1,18 @@
+{"obj": {"type": "AssignString", "path": ["sys", "name"], "value": "MLM_model"}, "version": 1}
+{"obj": {"type": "AssignString", "path": ["sys", "description"], "value": ""}, "version": 2}
+{"obj": {"type": "AssignString", "path": ["monitoring", "74214c68", "hostname"], "value": "mikkel4c14"}, "version": 3}
+{"obj": {"type": "AssignString", "path": ["sys", "hostname"], "value": "mikkel4c14"}, "version": 4}
+{"obj": {"type": "AssignString", "path": ["monitoring", "74214c68", "pid"], "value": "48575"}, "version": 5}
+{"obj": {"type": "AssignString", "path": ["monitoring", "74214c68", "tid"], "value": "140011201935168"}, "version": 6}
+{"obj": {"type": "AssignBool", "path": ["sys", "failed"], "value": false}, "version": 7}
+{"obj": {"type": "ClearStringLog", "path": ["monitoring", "74214c68", "stdout"]}, "version": 8}
+{"obj": {"type": "ClearStringLog", "path": ["monitoring", "74214c68", "stderr"]}, "version": 9}
+{"obj": {"type": "AssignString", "path": ["source_code", "entrypoint"], "value": "executeBehrtMLM.py"}, "version": 10}
+{"obj": {"type": "UploadFileSet", "path": ["source_code", "files"], "file_globs": ["/mnt/batch/tasks/shared/LS_root/mounts/clusters/mikkel4c14/code/Users/mikkel.sinkjaer/transformerEHR/task/executeBehrtMLM.py"], "reset": "False"}, "version": 11}
+{"obj": {"type": "UploadFile", "path": ["source_code", "diff"], "ext": "patch", "file_path": null, "tmp_file_name": "source_code_diff-1691666739.340273-2023-08-10_11.25.39.340273.patch", "clean_after_upload": false}, "version": 12}
+{"obj": {"type": "UploadFile", "path": ["source_code", "upstream_diff_None"], "ext": "patch", "file_path": null, "tmp_file_name": "source_code_upstream_diff_None-1691666739.439299-2023-08-10_11.25.39.439299.patch", "clean_after_upload": false}, "version": 13}
+{"obj": {"type": "LogStrings", "path": ["monitoring", "74214c68", "stderr"], "values": [{"value": "Info (NVML): Driver Not Loaded. GPU usage metrics may not be reported. For more information, see https://docs.neptune.ai/help/nvml_error/\n", "step": null, "ts": 1691666739.7294743}]}, "version": 14}
+{"obj": {"type": "ConfigFloatSeries", "path": ["monitoring", "74214c68", "cpu"], "min": 0.0, "max": 100.0, "unit": "%"}, "version": 15}
+{"obj": {"type": "ClearFloatLog", "path": ["monitoring", "74214c68", "cpu"]}, "version": 16}
+{"obj": {"type": "ConfigFloatSeries", "path": ["monitoring", "74214c68", "memory"], "min": 0.0, "max": 13.659683227539062, "unit": "GB"}, "version": 17}
+{"obj": {"type": "ClearFloatLog", "path": ["monitoring", "74214c68", "memory"]}, "version": 18}

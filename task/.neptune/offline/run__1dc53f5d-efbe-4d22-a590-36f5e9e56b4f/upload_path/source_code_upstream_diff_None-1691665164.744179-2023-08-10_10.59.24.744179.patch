@@ -1,0 +1,48 @@
+diff --git a/common/__pycache__/__init__.cpython-38.pyc b/common/__pycache__/__init__.cpython-38.pyc
+index 3847d41..e00ddd8 100644
+Binary files a/common/__pycache__/__init__.cpython-38.pyc and b/common/__pycache__/__init__.cpython-38.pyc differ
+diff --git a/common/__pycache__/common.cpython-38.pyc b/common/__pycache__/common.cpython-38.pyc
+index 2fd2438..4b3359f 100644
+Binary files a/common/__pycache__/common.cpython-38.pyc and b/common/__pycache__/common.cpython-38.pyc differ
+diff --git a/dataLoader/__pycache__/build_vocab.cpython-38.pyc b/dataLoader/__pycache__/build_vocab.cpython-38.pyc
+index 5aa32bd..cc6fb8f 100644
+Binary files a/dataLoader/__pycache__/build_vocab.cpython-38.pyc and b/dataLoader/__pycache__/build_vocab.cpython-38.pyc differ
+diff --git a/dataLoader/__pycache__/dataLoaderMLM.cpython-38.pyc b/dataLoader/__pycache__/dataLoaderMLM.cpython-38.pyc
+index a5dc338..8e56dca 100644
+Binary files a/dataLoader/__pycache__/dataLoaderMLM.cpython-38.pyc and b/dataLoader/__pycache__/dataLoaderMLM.cpython-38.pyc differ
+diff --git a/dataLoader/__pycache__/utils.cpython-38.pyc b/dataLoader/__pycache__/utils.cpython-38.pyc
+index 5dde3f3..85759a3 100644
+Binary files a/dataLoader/__pycache__/utils.cpython-38.pyc and b/dataLoader/__pycache__/utils.cpython-38.pyc differ
+diff --git a/model/__pycache__/behrt.cpython-38.pyc b/model/__pycache__/behrt.cpython-38.pyc
+index 3a814e6..ca9d7e5 100644
+Binary files a/model/__pycache__/behrt.cpython-38.pyc and b/model/__pycache__/behrt.cpython-38.pyc differ
+diff --git a/task/executeBehrtMLM.py b/task/executeBehrtMLM.py
+index 036c514..e0056a9 100644
+--- a/task/executeBehrtMLM.py
++++ b/task/executeBehrtMLM.py
+@@ -47,6 +47,7 @@ class BertConfig(Bert.modeling.BertConfig):
+ 
+ 
+ if Azure:
++    os.environ['NEPTUNE_MODE'] = 'offline'
+     file_config = {
+         "data_train": "../../EHR_data/data/pre_train_training_set.json",  # formated data
+         "data_val": "../../EHR_data/data/pre_train_validation_set.json",  # formated data
+@@ -96,7 +97,7 @@ trainload = DataLoader(
+     batch_size=train_params["batch_size"],
+     shuffle=True,
+     pin_memory=True,
+-    num_workers=6,
++    # num_workers=6,
+ )
+ masked_data_val = MaskedDataset(data_val_json, vocab_list, word_to_idx)
+ valload = DataLoader(
+@@ -104,7 +105,7 @@ valload = DataLoader(
+     batch_size=train_params["batch_size"],
+     shuffle=False,
+     pin_memory=True,
+-    num_workers=6,
++    # num_workers=6,
+ )
+ 
+ # Model config
