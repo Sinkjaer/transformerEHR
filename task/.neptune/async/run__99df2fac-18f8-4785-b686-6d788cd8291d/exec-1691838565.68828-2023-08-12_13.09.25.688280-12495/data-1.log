@@ -1,0 +1,25 @@
+{"obj": {"type": "AssignString", "path": ["sys", "name"], "value": "MLM_model"}, "version": 1}
+{"obj": {"type": "AssignString", "path": ["sys", "description"], "value": ""}, "version": 2}
+{"obj": {"type": "AssignString", "path": ["monitoring", "b00f18d4", "hostname"], "value": "Mikkels-MacBook-Pro.local"}, "version": 3}
+{"obj": {"type": "AssignString", "path": ["sys", "hostname"], "value": "Mikkels-MacBook-Pro.local"}, "version": 4}
+{"obj": {"type": "AssignString", "path": ["monitoring", "b00f18d4", "pid"], "value": "12495"}, "version": 5}
+{"obj": {"type": "AssignString", "path": ["monitoring", "b00f18d4", "tid"], "value": "8842208512"}, "version": 6}
+{"obj": {"type": "AssignBool", "path": ["sys", "failed"], "value": false}, "version": 7}
+{"obj": {"type": "UploadFile", "path": ["source_code", "diff"], "ext": "patch", "file_path": null, "tmp_file_name": "source_code_diff-1691838565.805201-2023-08-12_13.09.25.805201.patch", "clean_after_upload": false}, "version": 8}
+{"obj": {"type": "AssignString", "path": ["source_code", "integrations", "pytorch-lightning"], "value": "2.0.6"}, "version": 9}
+{"obj": {"type": "AssignInt", "path": ["training", "hyperparams", "vocab_size"], "value": 56}, "version": 10}
+{"obj": {"type": "AssignInt", "path": ["training", "hyperparams", "hidden_size"], "value": 288}, "version": 11}
+{"obj": {"type": "AssignInt", "path": ["training", "hyperparams", "seg_vocab_size"], "value": 2}, "version": 12}
+{"obj": {"type": "AssignInt", "path": ["training", "hyperparams", "date_vocab_size"], "value": 8400}, "version": 13}
+{"obj": {"type": "AssignInt", "path": ["training", "hyperparams", "age_vocab_size"], "value": 144}, "version": 14}
+{"obj": {"type": "AssignInt", "path": ["training", "hyperparams", "max_position_embedding"], "value": 512}, "version": 15}
+{"obj": {"type": "AssignFloat", "path": ["training", "hyperparams", "hidden_dropout_prob"], "value": 0.1}, "version": 16}
+{"obj": {"type": "AssignInt", "path": ["training", "hyperparams", "num_hidden_layers"], "value": 6}, "version": 17}
+{"obj": {"type": "AssignInt", "path": ["training", "hyperparams", "num_attention_heads"], "value": 12}, "version": 18}
+{"obj": {"type": "AssignFloat", "path": ["training", "hyperparams", "attention_probs_dropout_prob"], "value": 0.1}, "version": 19}
+{"obj": {"type": "AssignInt", "path": ["training", "hyperparams", "intermediate_size"], "value": 512}, "version": 20}
+{"obj": {"type": "AssignString", "path": ["training", "hyperparams", "hidden_act"], "value": "gelu"}, "version": 21}
+{"obj": {"type": "AssignFloat", "path": ["training", "hyperparams", "initializer_range"], "value": 0.02}, "version": 22}
+{"obj": {"type": "AssignFloat", "path": ["training", "hyperparams", "optim_param", "lr"], "value": 2e-05}, "version": 23}
+{"obj": {"type": "AssignFloat", "path": ["training", "hyperparams", "optim_param", "warmup_proportion"], "value": 0.1}, "version": 24}
+{"obj": {"type": "AssignFloat", "path": ["training", "hyperparams", "optim_param", "weight_decay"], "value": 0.01}, "version": 25}

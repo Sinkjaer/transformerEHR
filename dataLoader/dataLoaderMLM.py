@@ -115,13 +115,15 @@ def process_data_MLM(
 
     for date_list, code_list in admid_groups.values():
         # Add date and code sequences
-        date_sequence.extend(
-            [int((ref_date - date) // minutes_per_day) for date in date_list]
-        )
-        age_sequence.extend(
-            [max(0, int((date - birth_date) // minutes_per_year)) for date in date_list]
-        )
+        date_temp = [int((ref_date - date) // minutes_per_day) for date in date_list]
+        date_sequence.extend(date_temp)
 
+        age_temp = [
+            max(0, int((date - birth_date) // minutes_per_year)) for date in date_list
+        ]
+
+        date_sequence.append(min(date_temp))
+        age_sequence.append(max(age_temp))
         code_sequence.extend(code_list + [SEP_TOKEN])
         position_sequence.extend([position] * (len(code_list) + 1))
         segment_sequence.extend([segment] * (len(code_list) + 1))
@@ -339,13 +341,15 @@ def process_data_CoercionRisk(
         if "sample" in code_list:
             break
         # Add date and code sequences
-        date_sequence.extend(
-            [int((ref_date - date) // minutes_per_day) for date in date_list]
-        )
-        age_sequence.extend(
-            [max(0, int((date - birth_date) // minutes_per_year)) for date in date_list]
-        )
+        date_temp = [int((ref_date - date) // minutes_per_day) for date in date_list]
+        date_sequence.extend(date_temp)
 
+        age_temp = [
+            max(0, int((date - birth_date) // minutes_per_year)) for date in date_list
+        ]
+
+        date_sequence.append(min(date_temp))
+        age_sequence.append(max(age_temp))
         code_sequence.extend(code_list + [SEP_TOKEN])
         position_sequence.extend([position] * (len(code_list) + 1))
         segment_sequence.extend([segment] * (len(code_list) + 1))

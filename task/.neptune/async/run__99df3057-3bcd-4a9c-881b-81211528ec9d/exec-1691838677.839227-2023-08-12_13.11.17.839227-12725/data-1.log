@@ -1,0 +1,97 @@
+{"obj": {"type": "AssignString", "path": ["sys", "name"], "value": "MLM_model"}, "version": 1}
+{"obj": {"type": "AssignString", "path": ["sys", "description"], "value": ""}, "version": 2}
+{"obj": {"type": "AssignString", "path": ["monitoring", "9983a2e5", "hostname"], "value": "Mikkels-MacBook-Pro.local"}, "version": 3}
+{"obj": {"type": "AssignString", "path": ["sys", "hostname"], "value": "Mikkels-MacBook-Pro.local"}, "version": 4}
+{"obj": {"type": "AssignString", "path": ["monitoring", "9983a2e5", "pid"], "value": "12725"}, "version": 5}
+{"obj": {"type": "AssignString", "path": ["monitoring", "9983a2e5", "tid"], "value": "8842208512"}, "version": 6}
+{"obj": {"type": "AssignBool", "path": ["sys", "failed"], "value": false}, "version": 7}
+{"obj": {"type": "UploadFile", "path": ["source_code", "diff"], "ext": "patch", "file_path": null, "tmp_file_name": "source_code_diff-1691838677.960239-2023-08-12_13.11.17.960239.patch", "clean_after_upload": false}, "version": 8}
+{"obj": {"type": "AssignString", "path": ["source_code", "integrations", "pytorch-lightning"], "value": "2.0.6"}, "version": 9}
+{"obj": {"type": "AssignInt", "path": ["training", "hyperparams", "vocab_size"], "value": 56}, "version": 10}
+{"obj": {"type": "AssignInt", "path": ["training", "hyperparams", "hidden_size"], "value": 288}, "version": 11}
+{"obj": {"type": "AssignInt", "path": ["training", "hyperparams", "seg_vocab_size"], "value": 2}, "version": 12}
+{"obj": {"type": "AssignInt", "path": ["training", "hyperparams", "date_vocab_size"], "value": 8400}, "version": 13}
+{"obj": {"type": "AssignInt", "path": ["training", "hyperparams", "age_vocab_size"], "value": 144}, "version": 14}
+{"obj": {"type": "AssignInt", "path": ["training", "hyperparams", "max_position_embedding"], "value": 512}, "version": 15}
+{"obj": {"type": "AssignFloat", "path": ["training", "hyperparams", "hidden_dropout_prob"], "value": 0.1}, "version": 16}
+{"obj": {"type": "AssignInt", "path": ["training", "hyperparams", "num_hidden_layers"], "value": 6}, "version": 17}
+{"obj": {"type": "AssignInt", "path": ["training", "hyperparams", "num_attention_heads"], "value": 12}, "version": 18}
+{"obj": {"type": "AssignFloat", "path": ["training", "hyperparams", "attention_probs_dropout_prob"], "value": 0.1}, "version": 19}
+{"obj": {"type": "AssignInt", "path": ["training", "hyperparams", "intermediate_size"], "value": 512}, "version": 20}
+{"obj": {"type": "AssignString", "path": ["training", "hyperparams", "hidden_act"], "value": "gelu"}, "version": 21}
+{"obj": {"type": "AssignFloat", "path": ["training", "hyperparams", "initializer_range"], "value": 0.02}, "version": 22}
+{"obj": {"type": "AssignFloat", "path": ["training", "hyperparams", "optim_param", "lr"], "value": 2e-05}, "version": 23}
+{"obj": {"type": "AssignFloat", "path": ["training", "hyperparams", "optim_param", "warmup_proportion"], "value": 0.1}, "version": 24}
+{"obj": {"type": "AssignFloat", "path": ["training", "hyperparams", "optim_param", "weight_decay"], "value": 0.01}, "version": 25}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "loss_val"], "values": [{"value": 0.00040763485594652593, "step": null, "ts": 1691838685.872236}]}, "version": 26}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "acc_val"], "values": [{"value": 0.004481433890759945, "step": null, "ts": 1691838685.872521}]}, "version": 27}
+{"obj": {"type": "LogFloats", "path": ["training", "epoch"], "values": [{"value": 0.0, "step": null, "ts": 1691838685.8726091}]}, "version": 28}
+{"obj": {"type": "UploadFile", "path": ["training", "model", "checkpoints", "checkpoint-epoch=00"], "ext": "ckpt", "file_path": "/Users/mikkelsinkjaer/Library/Mobile Documents/com~apple~CloudDocs/transEHR/Code/transformerEHR/task/MLM/MLM_model/checkpoints/checkpoint-epoch=00.ckpt", "tmp_file_name": null, "clean_after_upload": false}, "version": 29}
+{"obj": {"type": "AssignString", "path": ["training", "model", "best_model_path"], "value": "/Users/mikkelsinkjaer/Library/Mobile Documents/com~apple~CloudDocs/transEHR/Code/transformerEHR/task/MLM/MLM_model/checkpoints/checkpoint-epoch=00.ckpt"}, "version": 30}
+{"obj": {"type": "UploadFile", "path": ["training", "model", "checkpoints", "checkpoint-epoch=00"], "ext": "bin", "file_path": null, "tmp_file_name": "training_model_checkpoints_checkpoint-epoch=00-1691838686.012942-2023-08-12_13.11.26.012942.bin", "clean_after_upload": false}, "version": 31}
+{"obj": {"type": "AssignFloat", "path": ["training", "model", "best_model_score"], "value": 0.00040763485594652593}, "version": 32}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "loss_train"], "values": [{"value": 0.00040846248157322407, "step": null, "ts": 1691838686.064734}]}, "version": 33}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "acc_train"], "values": [{"value": 0.005358338821679354, "step": null, "ts": 1691838686.064815}]}, "version": 34}
+{"obj": {"type": "LogFloats", "path": ["training", "epoch"], "values": [{"value": 0.0, "step": null, "ts": 1691838686.064856}]}, "version": 35}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "loss_val"], "values": [{"value": 0.0004080575017724186, "step": null, "ts": 1691838686.938068}]}, "version": 36}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "acc_val"], "values": [{"value": 0.004968944005668163, "step": null, "ts": 1691838686.9382138}]}, "version": 37}
+{"obj": {"type": "LogFloats", "path": ["training", "epoch"], "values": [{"value": 1.0, "step": null, "ts": 1691838686.938275}]}, "version": 38}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "loss_train"], "values": [{"value": 0.00040728572639636695, "step": null, "ts": 1691838686.972538}]}, "version": 39}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "acc_train"], "values": [{"value": 0.006218905560672283, "step": null, "ts": 1691838686.972657}]}, "version": 40}
+{"obj": {"type": "LogFloats", "path": ["training", "epoch"], "values": [{"value": 1.0, "step": null, "ts": 1691838686.972706}]}, "version": 41}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "loss_val"], "values": [{"value": 0.00040900634485296905, "step": null, "ts": 1691838687.760849}]}, "version": 42}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "acc_val"], "values": [{"value": 0.005653266329318285, "step": null, "ts": 1691838687.76101}]}, "version": 43}
+{"obj": {"type": "LogFloats", "path": ["training", "epoch"], "values": [{"value": 2.0, "step": null, "ts": 1691838687.761056}]}, "version": 44}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "loss_train"], "values": [{"value": 0.0004082448431290686, "step": null, "ts": 1691838687.766649}]}, "version": 45}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "acc_train"], "values": [{"value": 0.00591327203437686, "step": null, "ts": 1691838687.76674}]}, "version": 46}
+{"obj": {"type": "LogFloats", "path": ["training", "epoch"], "values": [{"value": 2.0, "step": null, "ts": 1691838687.766797}]}, "version": 47}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "loss_val"], "values": [{"value": 0.0004080421931575984, "step": null, "ts": 1691838688.5503628}]}, "version": 48}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "acc_val"], "values": [{"value": 0.007299270015209913, "step": null, "ts": 1691838688.550522}]}, "version": 49}
+{"obj": {"type": "LogFloats", "path": ["training", "epoch"], "values": [{"value": 3.0, "step": null, "ts": 1691838688.5505888}]}, "version": 50}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "loss_train"], "values": [{"value": 0.00040680007077753544, "step": null, "ts": 1691838688.557413}]}, "version": 51}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "acc_train"], "values": [{"value": 0.004501607734709978, "step": null, "ts": 1691838688.5575318}]}, "version": 52}
+{"obj": {"type": "LogFloats", "path": ["training", "epoch"], "values": [{"value": 3.0, "step": null, "ts": 1691838688.557596}]}, "version": 53}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "loss_val"], "values": [{"value": 0.00040722201811149716, "step": null, "ts": 1691838689.340705}]}, "version": 54}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "acc_val"], "values": [{"value": 0.0064850845374166965, "step": null, "ts": 1691838689.3408709}]}, "version": 55}
+{"obj": {"type": "LogFloats", "path": ["training", "epoch"], "values": [{"value": 4.0, "step": null, "ts": 1691838689.340935}]}, "version": 56}
+{"obj": {"type": "UploadFile", "path": ["training", "model", "checkpoints", "checkpoint-epoch=04"], "ext": "ckpt", "file_path": "/Users/mikkelsinkjaer/Library/Mobile Documents/com~apple~CloudDocs/transEHR/Code/transformerEHR/task/MLM/MLM_model/checkpoints/checkpoint-epoch=04.ckpt", "tmp_file_name": null, "clean_after_upload": false}, "version": 57}
+{"obj": {"type": "AssignString", "path": ["training", "model", "best_model_path"], "value": "/Users/mikkelsinkjaer/Library/Mobile Documents/com~apple~CloudDocs/transEHR/Code/transformerEHR/task/MLM/MLM_model/checkpoints/checkpoint-epoch=04.ckpt"}, "version": 58}
+{"obj": {"type": "UploadFile", "path": ["training", "model", "checkpoints", "checkpoint-epoch=04"], "ext": "bin", "file_path": null, "tmp_file_name": "training_model_checkpoints_checkpoint-epoch=04-1691838689.455327-2023-08-12_13.11.29.455327.bin", "clean_after_upload": false}, "version": 59}
+{"obj": {"type": "DeleteAttribute", "path": ["training", "model", "checkpoints", "checkpoint-epoch=00"]}, "version": 60}
+{"obj": {"type": "AssignFloat", "path": ["training", "model", "best_model_score"], "value": 0.00040722201811149716}, "version": 61}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "loss_train"], "values": [{"value": 0.0004083028470631689, "step": null, "ts": 1691838689.523299}]}, "version": 62}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "acc_train"], "values": [{"value": 0.0019749836064875126, "step": null, "ts": 1691838689.5233731}]}, "version": 63}
+{"obj": {"type": "LogFloats", "path": ["training", "epoch"], "values": [{"value": 4.0, "step": null, "ts": 1691838689.523415}]}, "version": 64}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "loss_val"], "values": [{"value": 0.0004082349769305438, "step": null, "ts": 1691838690.3075478}]}, "version": 65}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "acc_val"], "values": [{"value": 0.007189542520791292, "step": null, "ts": 1691838690.307706}]}, "version": 66}
+{"obj": {"type": "LogFloats", "path": ["training", "epoch"], "values": [{"value": 5.0, "step": null, "ts": 1691838690.307771}]}, "version": 67}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "loss_train"], "values": [{"value": 0.0004054513410665095, "step": null, "ts": 1691838690.315365}]}, "version": 68}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "acc_train"], "values": [{"value": 0.004388714674860239, "step": null, "ts": 1691838690.3154712}]}, "version": 69}
+{"obj": {"type": "LogFloats", "path": ["training", "epoch"], "values": [{"value": 5.0, "step": null, "ts": 1691838690.315534}]}, "version": 70}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "loss_val"], "values": [{"value": 0.00040824167081154883, "step": null, "ts": 1691838691.107244}]}, "version": 71}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "acc_val"], "values": [{"value": 0.005069708451628685, "step": null, "ts": 1691838691.107413}]}, "version": 72}
+{"obj": {"type": "LogFloats", "path": ["training", "epoch"], "values": [{"value": 6.0, "step": null, "ts": 1691838691.107532}]}, "version": 73}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "loss_train"], "values": [{"value": 0.0004075765609741211, "step": null, "ts": 1691838691.114246}]}, "version": 74}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "acc_train"], "values": [{"value": 0.005066497717052698, "step": null, "ts": 1691838691.114345}]}, "version": 75}
+{"obj": {"type": "LogFloats", "path": ["training", "epoch"], "values": [{"value": 6.0, "step": null, "ts": 1691838691.114408}]}, "version": 76}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "loss_val"], "values": [{"value": 0.00040706415893509984, "step": null, "ts": 1691838691.8965812}]}, "version": 77}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "acc_val"], "values": [{"value": 0.0076093850657343864, "step": null, "ts": 1691838691.8967922}]}, "version": 78}
+{"obj": {"type": "LogFloats", "path": ["training", "epoch"], "values": [{"value": 7.0, "step": null, "ts": 1691838691.8968651}]}, "version": 79}
+{"obj": {"type": "UploadFile", "path": ["training", "model", "checkpoints", "checkpoint-epoch=07"], "ext": "ckpt", "file_path": "/Users/mikkelsinkjaer/Library/Mobile Documents/com~apple~CloudDocs/transEHR/Code/transformerEHR/task/MLM/MLM_model/checkpoints/checkpoint-epoch=07.ckpt", "tmp_file_name": null, "clean_after_upload": false}, "version": 80}
+{"obj": {"type": "AssignString", "path": ["training", "model", "best_model_path"], "value": "/Users/mikkelsinkjaer/Library/Mobile Documents/com~apple~CloudDocs/transEHR/Code/transformerEHR/task/MLM/MLM_model/checkpoints/checkpoint-epoch=07.ckpt"}, "version": 81}
+{"obj": {"type": "UploadFile", "path": ["training", "model", "checkpoints", "checkpoint-epoch=07"], "ext": "bin", "file_path": null, "tmp_file_name": "training_model_checkpoints_checkpoint-epoch=07-1691838692.019538-2023-08-12_13.11.32.019538.bin", "clean_after_upload": false}, "version": 82}
+{"obj": {"type": "DeleteAttribute", "path": ["training", "model", "checkpoints", "checkpoint-epoch=04"]}, "version": 83}
+{"obj": {"type": "AssignFloat", "path": ["training", "model", "best_model_score"], "value": 0.00040706415893509984}, "version": 84}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "loss_train"], "values": [{"value": 0.0004070497234351933, "step": null, "ts": 1691838692.082348}]}, "version": 85}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "acc_train"], "values": [{"value": 0.006393861956894398, "step": null, "ts": 1691838692.082411}]}, "version": 86}
+{"obj": {"type": "LogFloats", "path": ["training", "epoch"], "values": [{"value": 7.0, "step": null, "ts": 1691838692.082452}]}, "version": 87}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "loss_val"], "values": [{"value": 0.0004080396320205182, "step": null, "ts": 1691838692.8661451}]}, "version": 88}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "acc_val"], "values": [{"value": 0.00736278435215354, "step": null, "ts": 1691838692.866293}]}, "version": 89}
+{"obj": {"type": "LogFloats", "path": ["training", "epoch"], "values": [{"value": 8.0, "step": null, "ts": 1691838692.866355}]}, "version": 90}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "loss_train"], "values": [{"value": 0.0004064231179654598, "step": null, "ts": 1691838692.873707}]}, "version": 91}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "acc_train"], "values": [{"value": 0.006489292718470097, "step": null, "ts": 1691838692.8738182}]}, "version": 92}
+{"obj": {"type": "LogFloats", "path": ["training", "epoch"], "values": [{"value": 8.0, "step": null, "ts": 1691838692.873877}]}, "version": 93}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "loss_val"], "values": [{"value": 0.00040755473310127854, "step": null, "ts": 1691838693.658793}]}, "version": 94}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "acc_val"], "values": [{"value": 0.006406149826943874, "step": null, "ts": 1691838693.6589592}]}, "version": 95}
+{"obj": {"type": "LogFloats", "path": ["training", "epoch"], "values": [{"value": 9.0, "step": null, "ts": 1691838693.6590478}]}, "version": 96}
+{"obj": {"type": "LogFloats", "path": ["training", "metrics", "epoch", "loss_train"], "values": [{"value": 0.0004061297222506255, "step": null, "ts": 1691838693.6663418}]}, "version": 97}
